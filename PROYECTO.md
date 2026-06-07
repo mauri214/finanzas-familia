@@ -6,10 +6,11 @@ Herramienta de finanzas personales para una pareja (2 usuarios), construida como
 
 ## Estado actual
 
-- **Versión del prototipo:** v4 (`finanzas_v4.html`)
+- **Versión del prototipo:** v4.1 (`finanzas_v4.html`)
 - **Stack:** HTML + CSS + JavaScript vanilla (sin frameworks), un solo archivo
-- **Persistencia:** ninguna aún — los datos viven en memoria y se pierden al cerrar
-- **Próximo paso:** conectar Google Sheets como base de datos + GitHub para versioning
+- **Persistencia:** Google Sheets via Apps Script (con token de seguridad). Fallback a memoria si no hay URL configurada.
+- **Repo:** github.com/mauri214/finanzas-familia
+- **Próximo paso:** URL fija para acceso desde celular (GitHub Pages)
 
 ---
 
@@ -233,6 +234,18 @@ La URL del Sheet en el código se configura por variable, no hardcodeada.
 
 ---
 
+## Infraestructura actual
+
+| Componente | Detalle |
+|------------|---------|
+| Repo GitHub | github.com/mauri214/finanzas-familia |
+| Google Sheet TEST | ID: `1IxTLG38x-Zr-JhTI0AU-VNCINtRQjJ6Ne6ErA0Yyrzs` |
+| Google Sheet PROD | pendiente de crear |
+| Apps Script | deployado como Web App (acceso: cualquier usuario + token) |
+| Token / URL | guardados en `localStorage` del navegador — no se commitean |
+
+---
+
 ## Brokers y plataformas en uso
 
 | Plataforma | Tipo | Moneda | Integración |
@@ -245,10 +258,10 @@ La URL del Sheet en el código se configura por variable, no hardcodeada.
 
 ## Pendientes / Roadmap
 
-- [ ] Conectar Google Sheets como base de datos (próximo paso)
-- [ ] Configurar GitHub para versionado
+- [x] Conectar Google Sheets como base de datos ✓
+- [x] Configurar GitHub para versionado ✓
+- [ ] URL fija (GitHub Pages) para acceso desde celular
 - [ ] Conectar API Binance (read-only) para PNL automático de crypto
-- [ ] URL fija (GitHub Pages o Google Sites) para acceso desde celular
 - [ ] Notificaciones de metas próximas a vencer (opcional)
 - [ ] Exportación a PDF del resumen mensual (opcional)
 
