@@ -368,7 +368,8 @@ tr:hover td{background:var(--bg2)}
     <div class="fr full"><div class="fg"><div class="fl">Nombre de la app</div><input id="s-app"/></div></div>
     <div style="margin:10px 0 4px;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;border-top:1px solid var(--border);padding-top:10px">Google Sheets</div>
     <div class="fr full"><div class="fg"><div class="fl">URL del Apps Script deployado</div><input id="s-script-url" placeholder="https://script.google.com/macros/s/…/exec"/></div></div>
-    <div style="font-size:11px;color:var(--text3);margin-bottom:8px">Sin URL la app funciona en modo demo (datos en memoria). Con URL todos los cambios se sincronizan con Google Sheets.</div>
+    <div class="fr full"><div class="fg"><div class="fl">Token de seguridad</div><input id="s-script-token" placeholder="el mismo token que pusiste en Code.gs"/></div></div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:8px">Sin URL/token la app funciona en modo demo (datos en memoria). Con ambos, todos los cambios se sincronizan con Google Sheets.</div>
     <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap">
       <button class="bp" onclick="saveCfg()">Guardar</button>
       <button class="bs" onclick="recargarDesdeSheets()"><i class="ti ti-refresh"></i> Recargar desde Sheets</button>
@@ -449,19 +450,25 @@ tr:hover td{background:var(--bg2)}
 // Si SCRIPT_URL está vacía, la app funciona solo en memoria (modo demo).
 // Para conectar: pegá la URL del Apps Script deployado en Configuración.
 const DB = {
-  url: localStorage.getItem('ff_script_url') || '',
+  url:   localStorage.getItem('ff_script_url')   || '',
+  token: localStorage.getItem('ff_script_token') || '',
 
   setUrl(u) {
     this.url = u.trim();
     localStorage.setItem('ff_script_url', this.url);
   },
 
-  enabled() { return this.url.length > 0; },
+  setToken(t) {
+    this.token = t.trim();
+    localStorage.setItem('ff_script_token', this.token);
+  },
+
+  enabled() { return this.url.length > 0 && this.token.length > 0; },
 
   async call(action, sheet, extra={}) {
     if (!this.enabled()) return null;
     try {
-      const body = { action, sheet, ...extra };
+      const body = { action, sheet, token: this.token, ...extra };
       const res = await fetch(this.url, {
         method: 'POST',
         body: JSON.stringify(body)
@@ -1389,7 +1396,9 @@ async function saveCfg(){
   cfg.tc=parseFloat(document.getElementById('s-tc').value)||1200;
   cfg.app=document.getElementById('s-app').value||'finanzas familia';
   const url=document.getElementById('s-script-url').value.trim();
+  const token=document.getElementById('s-script-token').value.trim();
   if(url) DB.setUrl(url);
+  if(token) DB.setToken(token);
   document.getElementById('app-title').textContent=cfg.app;
   document.getElementById('av1-el').textContent=cfg.u1.slice(0,2).toUpperCase();
   document.getElementById('av2-el').textContent=cfg.u2.slice(0,2).toUpperCase();
@@ -1420,6 +1429,7 @@ function openModal(id){
     document.getElementById('s-tc').value=cfg.tc;
     document.getElementById('s-app').value=cfg.app;
     document.getElementById('s-script-url').value=DB.url;
+    document.getElementById('s-script-token').value=DB.token;
   }
   document.getElementById(id).classList.add('open');
 }

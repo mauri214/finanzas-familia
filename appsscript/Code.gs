@@ -7,6 +7,11 @@
 
 var SPREADSHEET_ID = 'REEMPLAZAR_CON_ID_DEL_SHEET';
 
+// Token de seguridad — debe coincidir con el que configurás en la app
+// Generalo con: Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)
+// y pegalo también en el campo "Token" de Configuración en la app
+var API_TOKEN = 'REEMPLAZAR_CON_TOKEN_SECRETO';
+
 // Cabeceras por hoja — orden exacto de columnas en el Sheet
 var HEADERS = {
   Gastos:       ['id','fecha','desc','cat','amb','quien','medio','cuotas','monto','notas'],
@@ -36,6 +41,12 @@ function handleRequest(e) {
     var body = {};
     if (e.postData && e.postData.contents) {
       body = JSON.parse(e.postData.contents);
+    }
+
+    // Validacion de token
+    var token = params.token || body.token;
+    if (token !== API_TOKEN) {
+      return jsonResponse({ ok: false, error: 'No autorizado' });
     }
 
     var action = params.action || body.action;
