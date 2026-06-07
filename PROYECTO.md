@@ -10,7 +10,8 @@ Herramienta de finanzas personales para una pareja (2 usuarios), construida como
 - **Stack:** HTML + CSS + JavaScript vanilla (sin frameworks), un solo archivo
 - **Persistencia:** Google Sheets via Apps Script (con token de seguridad). Fallback a memoria si no hay URL configurada.
 - **Repo:** github.com/mauri214/finanzas-familia
-- **Próximo paso:** URL fija para acceso desde celular (GitHub Pages)
+- **URL pública:** https://mauri214.github.io/finanzas-familia/
+- **Próximo paso:** libre — los 3 pilares base están funcionando
 
 ---
 
@@ -260,7 +261,7 @@ La URL del Sheet en el código se configura por variable, no hardcodeada.
 
 - [x] Conectar Google Sheets como base de datos ✓
 - [x] Configurar GitHub para versionado ✓
-- [ ] URL fija (GitHub Pages) para acceso desde celular
+- [x] URL fija para acceso desde celular ✓ → https://mauri214.github.io/finanzas-familia/
 - [ ] Conectar API Binance (read-only) para PNL automático de crypto
 - [ ] Notificaciones de metas próximas a vencer (opcional)
 - [ ] Exportación a PDF del resumen mensual (opcional)
