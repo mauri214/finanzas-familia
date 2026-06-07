@@ -615,8 +615,8 @@ const DB = {
         // migración: reemplazar nombre viejo por nuevo
         if (cfg.app === 'finanzas familia' || cfg.app === 'Finanzas Familia') cfg.app = 'HouseholdCap';
         document.getElementById('app-title').textContent = cfg.app;
-        document.getElementById('av1-el').textContent = cfg.u1;
-        document.getElementById('av2-el').textContent = cfg.u2;
+        document.getElementById('av1-el').textContent = cfg.u1.slice(0,2).toUpperCase();
+        document.getElementById('av2-el').textContent = cfg.u2.slice(0,2).toUpperCase();
       }
 
       // Recalcular nid para evitar colisiones
