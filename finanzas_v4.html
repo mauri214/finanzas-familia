@@ -366,7 +366,14 @@ tr:hover td{background:var(--bg2)}
     <div class="fr"><div class="fg"><div class="fl">Nombre usuario 1</div><input id="s-u1"/></div><div class="fg"><div class="fl">Nombre usuario 2</div><input id="s-u2"/></div></div>
     <div class="fr"><div class="fg"><div class="fl">Ingresos conjuntos ref. (ARS)</div><input id="s-ing" type="number"/></div><div class="fg"><div class="fl">Tipo de cambio USD/ARS</div><input id="s-tc" type="number"/></div></div>
     <div class="fr full"><div class="fg"><div class="fl">Nombre de la app</div><input id="s-app"/></div></div>
-    <div style="display:flex;gap:6px;margin-top:10px"><button class="bp" onclick="saveCfg()">Guardar</button><button class="bs" onclick="closeModal('modal-cfg')">Cancelar</button></div>
+    <div style="margin:10px 0 4px;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;border-top:1px solid var(--border);padding-top:10px">Google Sheets</div>
+    <div class="fr full"><div class="fg"><div class="fl">URL del Apps Script deployado</div><input id="s-script-url" placeholder="https://script.google.com/macros/s/…/exec"/></div></div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:8px">Sin URL la app funciona en modo demo (datos en memoria). Con URL todos los cambios se sincronizan con Google Sheets.</div>
+    <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap">
+      <button class="bp" onclick="saveCfg()">Guardar</button>
+      <button class="bs" onclick="recargarDesdeSheets()"><i class="ti ti-refresh"></i> Recargar desde Sheets</button>
+      <button class="bs" onclick="closeModal('modal-cfg')">Cancelar</button>
+    </div>
   </div>
 </div>
 
@@ -438,6 +445,133 @@ tr:hover td{background:var(--bg2)}
 <div class="toast" id="toast"></div>
 
 <script>
+// ======= DB — CAPA DE PERSISTENCIA =======
+// Si SCRIPT_URL está vacía, la app funciona solo en memoria (modo demo).
+// Para conectar: pegá la URL del Apps Script deployado en Configuración.
+const DB = {
+  url: localStorage.getItem('ff_script_url') || '',
+
+  setUrl(u) {
+    this.url = u.trim();
+    localStorage.setItem('ff_script_url', this.url);
+  },
+
+  enabled() { return this.url.length > 0; },
+
+  async call(action, sheet, extra={}) {
+    if (!this.enabled()) return null;
+    try {
+      const body = { action, sheet, ...extra };
+      const res = await fetch(this.url, {
+        method: 'POST',
+        body: JSON.stringify(body)
+      });
+      const json = await res.json();
+      if (!json.ok) throw new Error(json.error || 'Error en Apps Script');
+      return json;
+    } catch(e) {
+      console.error('DB error:', e);
+      toast('Error al guardar en Sheets: ' + e.message, true);
+      return null;
+    }
+  },
+
+  async getAll(sheet) {
+    const r = await this.call('getAll', sheet);
+    return r ? r.data : null;
+  },
+
+  async insert(sheet, data) {
+    return this.call('insert', sheet, { data });
+  },
+
+  async update(sheet, id, data) {
+    return this.call('update', sheet, { id, data });
+  },
+
+  async remove(sheet, id) {
+    return this.call('delete', sheet, { id });
+  },
+
+  async getCfg() {
+    const r = await this.call('getCfg', null);
+    return r ? r.data : null;
+  },
+
+  async setCfg(data) {
+    return this.call('setCfg', null, { data });
+  },
+
+  async loadAll() {
+    if (!this.enabled()) return false;
+    toast('Cargando datos desde Sheets…');
+    try {
+      const [g, i, inv, m, d, catRaw, cfgRaw] = await Promise.all([
+        this.getAll('Gastos'),
+        this.getAll('Ingresos'),
+        this.getAll('Inversiones'),
+        this.getAll('Metas'),
+        this.getAll('Deudas'),
+        this.getAll('Categorias'),
+        this.getCfg()
+      ]);
+
+      if (g)   { gastos = g.map(coerce_gasto); }
+      if (i)   { ingresos = i.map(coerce_ingreso); }
+      if (inv) { inversiones = inv.map(coerce_inversion); }
+      if (m)   { metas = m.map(coerce_meta); }
+      if (d)   { deudas = d.map(coerce_deuda); }
+
+      if (catRaw && catRaw.length) {
+        CAT = {};
+        catRaw.forEach(c => { CAT[c.nombre] = { color: c.color, amb: c.amb }; });
+      }
+
+      if (cfgRaw) {
+        if (cfgRaw.u1_nombre) cfg.u1 = cfgRaw.u1_nombre;
+        if (cfgRaw.u2_nombre) cfg.u2 = cfgRaw.u2_nombre;
+        if (cfgRaw.tc)        cfg.tc = Number(cfgRaw.tc);
+        if (cfgRaw.dist_modo) distMode = cfgRaw.dist_modo;
+        if (cfgRaw.dist_inv)  cfg.distInv = Number(cfgRaw.dist_inv);
+        if (cfgRaw.dist_gu1)  cfg.distGU1 = Number(cfgRaw.dist_gu1);
+        if (cfgRaw.dist_gu2)  cfg.distGU2 = Number(cfgRaw.dist_gu2);
+        if (cfgRaw.app_nombre) cfg.app = cfgRaw.app_nombre;
+        document.getElementById('app-title').textContent = cfg.app;
+        document.getElementById('av1-el').textContent = cfg.u1;
+        document.getElementById('av2-el').textContent = cfg.u2;
+      }
+
+      // Recalcular nid para evitar colisiones
+      const allIds = [...gastos, ...ingresos, ...inversiones, ...metas, ...deudas]
+        .map(r => Number(r.id) || 0);
+      if (allIds.length) nid = Math.max(...allIds) + 1;
+
+      toast('Datos cargados desde Sheets ✓');
+      return true;
+    } catch(e) {
+      toast('Error al cargar desde Sheets', true);
+      return false;
+    }
+  }
+};
+
+// Coerciones de tipos (Sheets devuelve todo como string)
+function coerce_gasto(r) {
+  return { ...r, id:Number(r.id), monto:Number(r.monto), cuotas:Number(r.cuotas)||1 };
+}
+function coerce_ingreso(r) {
+  return { ...r, id:Number(r.id), monto:Number(r.monto), rec:Number(r.rec)||0 };
+}
+function coerce_inversion(r) {
+  return { ...r, id:Number(r.id), qty:Number(r.qty), pe:Number(r.pe), pa:Number(r.pa) };
+}
+function coerce_meta(r) {
+  return { ...r, id:Number(r.id), obj:Number(r.obj), act:Number(r.act), done: r.done==='true'||r.done===true };
+}
+function coerce_deuda(r) {
+  return { ...r, id:Number(r.id), cap:Number(r.cap), tna:Number(r.tna), plazo:Number(r.plazo), pag:Number(r.pag)||0 };
+}
+
 // ======= STATE =======
 const MONTHS=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 let curM=5,curY=2026,curAnioY=2026,curCur='ARS',gFilter='todos',dFilter='todos',distMode='gastos_primero',dashView='mes';
@@ -933,13 +1067,6 @@ function renderImpPreview(){
   </tr>`).join('');
 }
 function selectAllImp(v){impPending.forEach(p=>p.sel=v);document.getElementById('chk-all').checked=v;renderImpPreview()}
-function confirmImport(){
-  const sel=impPending.filter(p=>p.sel);
-  sel.forEach(p=>gastos.push({id:nid++,fecha:p.fecha,desc:p.desc,cat:p.cat,amb:p.amb,quien:p.owner,medio:p.medio,monto:p.monto,cuotas:p.cuotas,notas:'Importado'}));
-  impPending=[];document.getElementById('imp-preview-section').style.display='none';
-  document.getElementById('imp-text').value='';document.getElementById('imp-file-info').textContent='';
-  toast(`${sel.length} gastos importados`);
-}
 function clearImport(){impPending=[];document.getElementById('imp-text').value='';document.getElementById('imp-file-info').textContent='';document.getElementById('imp-preview-section').style.display='none'}
 function calcCuotasPend(m,y){
   let t=0;
@@ -1012,8 +1139,6 @@ function renderMetas(){
       <div style="font-size:9px;color:#633806">${fa(m.obj)}</div>
     </div>`).join('')}</div>`:'';
 }
-function marcarDone(i){const a=metas.filter(m=>!m.done);a[i].done=true;a[i].act=a[i].obj;renderMetas();toast('¡Meta cumplida! Se movió a trofeos')}
-function delMeta(i){const a=metas.filter(m=>!m.done);metas=metas.filter(m=>m!==a[i]);renderMetas()}
 
 // ======= DEUDAS =======
 function cuotaMensual(d){const tem=Math.pow(1+d.tna/100,1/12)-1;return d.cap*tem*Math.pow(1+tem,d.plazo)/(Math.pow(1+tem,d.plazo)-1)}
@@ -1143,15 +1268,20 @@ function simAdel(idx){
 function fltD(f,btn){dFilter=f;document.querySelectorAll('#sec-deudas .tab').forEach(t=>t.classList.remove('active'));btn.classList.add('active');renderDeudas()}
 
 // ======= CRUD =======
-function saveGasto(){
+async function saveGasto(){
   const desc=document.getElementById('g-desc').value.trim();
   const monto=parseFloat(document.getElementById('g-monto').value);
   if(!desc||!monto){toast('Completá descripción y monto',true);return}
-  gastos.push({id:nid++,fecha:document.getElementById('g-fecha').value||td(),desc,cat:document.getElementById('g-cat').value,amb:document.getElementById('g-ambito').value,quien:document.getElementById('g-quien').value,medio:document.getElementById('g-medio').value,cuotas:parseInt(document.getElementById('g-cuotas').value)||1,monto,notas:document.getElementById('g-notas').value});
+  const rec={id:nid++,fecha:document.getElementById('g-fecha').value||td(),desc,cat:document.getElementById('g-cat').value,amb:document.getElementById('g-ambito').value,quien:document.getElementById('g-quien').value,medio:document.getElementById('g-medio').value,cuotas:parseInt(document.getElementById('g-cuotas').value)||1,monto,notas:document.getElementById('g-notas').value};
+  gastos.push(rec);
   ['g-desc','g-monto','g-notas'].forEach(id=>document.getElementById(id).value='');
   toast('Gasto guardado');showSec('gastos');
+  await DB.insert('Gastos',rec);
 }
-function delGasto(id){gastos=gastos.filter(g=>g.id!==id);renderGastos()}
+async function delGasto(id){
+  gastos=gastos.filter(g=>g.id!==id);renderGastos();
+  await DB.remove('Gastos',id);
+}
 function openEditGasto(id){
   const g=gastos.find(g=>g.id===id);if(!g)return;
   document.getElementById('eg-id').value=id;
@@ -1166,7 +1296,7 @@ function openEditGasto(id){
   document.getElementById('eg-notas').value=g.notas||'';
   openModal('modal-edit-gasto');
 }
-function updateGasto(){
+async function updateGasto(){
   const id=parseInt(document.getElementById('eg-id').value);
   const g=gastos.find(g=>g.id===id);if(!g)return;
   const desc=document.getElementById('eg-desc').value.trim();
@@ -1174,54 +1304,99 @@ function updateGasto(){
   if(!desc||!monto){toast('Completá descripción y monto',true);return}
   Object.assign(g,{desc,monto,fecha:document.getElementById('eg-fecha').value,cat:document.getElementById('eg-cat').value,amb:document.getElementById('eg-ambito').value,quien:document.getElementById('eg-quien').value,cuotas:parseInt(document.getElementById('eg-cuotas').value)||1,medio:document.getElementById('eg-medio').value,notas:document.getElementById('eg-notas').value});
   closeModal('modal-edit-gasto');toast('Gasto actualizado');renderGastos();
+  await DB.update('Gastos',id,g);
 }
-function saveIng(){
+async function saveIng(){
   const desc=document.getElementById('in-desc').value.trim();
   const monto=parseFloat(document.getElementById('in-monto').value);
   if(!desc||!monto){toast('Completá descripción y monto',true);return}
-  ingresos.push({id:nid++,fecha:document.getElementById('in-fecha').value||td(),desc,tipo:document.getElementById('in-tipo').value,quien:document.getElementById('in-quien').value,monto,rec:parseInt(document.getElementById('in-rec').value)});
+  const rec={id:nid++,fecha:document.getElementById('in-fecha').value||td(),desc,tipo:document.getElementById('in-tipo').value,quien:document.getElementById('in-quien').value,monto,rec:parseInt(document.getElementById('in-rec').value)};
+  ingresos.push(rec);
   closeModal('modal-ingreso');toast('Ingreso guardado');renderIngresos();
+  await DB.insert('Ingresos',rec);
 }
-function delIng(id){ingresos=ingresos.filter(i=>i.id!==id);renderIngresos()}
-function saveInv(){
+async function delIng(id){
+  ingresos=ingresos.filter(i=>i.id!==id);renderIngresos();
+  await DB.remove('Ingresos',id);
+}
+async function saveInv(){
   const act=document.getElementById('i-act').value.trim().toUpperCase();
   const qty=parseFloat(document.getElementById('i-qty').value);
   const pe=parseFloat(document.getElementById('i-pe').value);
   const pa=parseFloat(document.getElementById('i-pa').value);
   if(!act||!qty||!pe||!pa){toast('Completá todos los campos',true);return}
-  inversiones.push({id:nid++,activo:act,tipo:document.getElementById('i-tipo').value,plat:document.getElementById('i-plat').value,mon:document.getElementById('i-mon').value,qty,pe,pa,fe:document.getElementById('i-fecha').value||td()});
+  const rec={id:nid++,activo:act,tipo:document.getElementById('i-tipo').value,plat:document.getElementById('i-plat').value,mon:document.getElementById('i-mon').value,qty,pe,pa,fe:document.getElementById('i-fecha').value||td()};
+  inversiones.push(rec);
   closeModal('modal-inv');toast('Posición guardada');renderInv();
+  await DB.insert('Inversiones',rec);
 }
-function delInv(id){inversiones=inversiones.filter(i=>i.id!==id);renderInv()}
-function saveMeta(){
+async function delInv(id){
+  inversiones=inversiones.filter(i=>i.id!==id);renderInv();
+  await DB.remove('Inversiones',id);
+}
+async function saveMeta(){
   const nom=document.getElementById('m-nom').value.trim();
   const obj=parseFloat(document.getElementById('m-obj').value);
   if(!nom||!obj){toast('Completá nombre y objetivo',true);return}
-  metas.push({id:nid++,nom,tipo:document.getElementById('m-tipo').value,obj,act:parseFloat(document.getElementById('m-act').value)||0,fecha:document.getElementById('m-fecha').value||'2027-01-01',color:document.getElementById('m-color').value,done:false});
+  const rec={id:nid++,nom,tipo:document.getElementById('m-tipo').value,obj,act:parseFloat(document.getElementById('m-act').value)||0,fecha:document.getElementById('m-fecha').value||'2027-01-01',color:document.getElementById('m-color').value,done:false};
+  metas.push(rec);
   closeModal('modal-meta');toast('Meta guardada');renderMetas();
+  await DB.insert('Metas',rec);
 }
-function saveDeuda(){
+async function marcarDone(i){
+  const a=metas.filter(m=>!m.done);
+  const meta=a[i];
+  meta.done=true;meta.act=meta.obj;
+  renderMetas();toast('¡Meta cumplida! Se movió a trofeos');
+  await DB.update('Metas',meta.id,{done:true,act:meta.obj});
+}
+async function delMeta(i){
+  const a=metas.filter(m=>!m.done);
+  const meta=a[i];
+  metas=metas.filter(m=>m!==meta);
+  renderMetas();
+  await DB.remove('Metas',meta.id);
+}
+async function saveDeuda(){
   const nom=document.getElementById('d-nom').value.trim();
   const cap=parseFloat(document.getElementById('d-cap').value);
   const tna=parseFloat(document.getElementById('d-tna').value);
   const plazo=parseInt(document.getElementById('d-plazo').value);
   if(!nom||!cap||!tna||!plazo){toast('Completá los campos obligatorios',true);return}
-  deudas.push({id:nid++,nom,tipo:document.getElementById('d-tipo').value,cap,tna,plazo,pag:parseInt(document.getElementById('d-pag').value)||0,ent:document.getElementById('d-ent').value||'—',own:document.getElementById('d-own').value});
+  const rec={id:nid++,nom,tipo:document.getElementById('d-tipo').value,cap,tna,plazo,pag:parseInt(document.getElementById('d-pag').value)||0,ent:document.getElementById('d-ent').value||'—',own:document.getElementById('d-own').value};
+  deudas.push(rec);
   closeModal('modal-deuda');toast('Crédito guardado');renderDeudas();
+  await DB.insert('Deudas',rec);
 }
-function delDeuda(idx){deudas.splice(idx,1);renderDeudas()}
-function saveCfg(){
+async function delDeuda(idx){
+  const id=deudas[idx].id;
+  deudas.splice(idx,1);renderDeudas();
+  await DB.remove('Deudas',id);
+}
+async function confirmImport(){
+  const sel=impPending.filter(p=>p.sel);
+  const nuevos=sel.map(p=>({id:nid++,fecha:p.fecha,desc:p.desc,cat:p.cat,amb:p.amb,quien:p.owner,medio:p.medio,monto:p.monto,cuotas:p.cuotas,notas:'Importado'}));
+  nuevos.forEach(r=>gastos.push(r));
+  impPending=[];document.getElementById('imp-preview-section').style.display='none';
+  document.getElementById('imp-text').value='';document.getElementById('imp-file-info').textContent='';
+  toast(`${sel.length} gastos importados`);
+  for(const r of nuevos) await DB.insert('Gastos',r);
+}
+async function saveCfg(){
   cfg.u1=document.getElementById('s-u1').value||'VH';
   cfg.u2=document.getElementById('s-u2').value||'MG';
   cfg.ing=parseFloat(document.getElementById('s-ing').value)||3000000;
   cfg.tc=parseFloat(document.getElementById('s-tc').value)||1200;
   cfg.app=document.getElementById('s-app').value||'finanzas familia';
+  const url=document.getElementById('s-script-url').value.trim();
+  if(url) DB.setUrl(url);
   document.getElementById('app-title').textContent=cfg.app;
   document.getElementById('av1-el').textContent=cfg.u1.slice(0,2).toUpperCase();
   document.getElementById('av2-el').textContent=cfg.u2.slice(0,2).toUpperCase();
   document.querySelectorAll('[id^="gtab-"]').forEach(el=>{if(el.id==='gtab-u1')el.textContent=cfg.u1;if(el.id==='gtab-u2')el.textContent=cfg.u2});
   document.querySelectorAll('[id^="dtab-"]').forEach(el=>{if(el.id==='dtab-u1')el.textContent=cfg.u1;if(el.id==='dtab-u2')el.textContent=cfg.u2});
   closeModal('modal-cfg');toast('Configuración guardada');renderDash();
+  await DB.setCfg({u1_nombre:cfg.u1,u2_nombre:cfg.u2,tc:cfg.tc,app_nombre:cfg.app,dist_modo:distMode,dist_inv:cfg.distInv,dist_gu1:cfg.distGU1,dist_gu2:cfg.distGU2});
 }
 
 // ======= CATS =======
@@ -1238,8 +1413,20 @@ function delCat(n){delete CAT[n];renderCatsList();fillCatSel('g-cat')}
 
 // ======= MODALS =======
 function openModal(id){
-  if(id==='modal-cfg'){document.getElementById('s-u1').value=cfg.u1;document.getElementById('s-u2').value=cfg.u2;document.getElementById('s-ing').value=cfg.ing;document.getElementById('s-tc').value=cfg.tc;document.getElementById('s-app').value=cfg.app}
+  if(id==='modal-cfg'){
+    document.getElementById('s-u1').value=cfg.u1;
+    document.getElementById('s-u2').value=cfg.u2;
+    document.getElementById('s-ing').value=cfg.ing;
+    document.getElementById('s-tc').value=cfg.tc;
+    document.getElementById('s-app').value=cfg.app;
+    document.getElementById('s-script-url').value=DB.url;
+  }
   document.getElementById(id).classList.add('open');
+}
+async function recargarDesdeSheets(){
+  closeModal('modal-cfg');
+  const ok=await DB.loadAll();
+  if(ok){renderDash();fillCatSel('g-cat');}
 }
 function closeModal(id){document.getElementById(id).classList.remove('open')}
 document.querySelectorAll('.modal-bg').forEach(el=>el.addEventListener('click',e=>{if(e.target===el)el.classList.remove('open')}));
@@ -1255,6 +1442,13 @@ document.getElementById('g-fecha').value=td();
 document.getElementById('in-fecha').value=td();
 fillCatSel('g-cat');
 renderDash();
+(async()=>{
+  if(DB.enabled()){
+    await DB.loadAll();
+    fillCatSel('g-cat');
+    renderDash();
+  }
+})();
 </script>
 </body>
 </html>
