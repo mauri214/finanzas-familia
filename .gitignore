@@ -2,4 +2,3 @@
 *.log
 .env
 .claude/
-CLAUDE.md
