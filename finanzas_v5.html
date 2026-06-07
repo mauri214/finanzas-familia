@@ -612,6 +612,8 @@ const DB = {
         if (cfgRaw.dist_gu1)  cfg.distGU1 = Number(cfgRaw.dist_gu1);
         if (cfgRaw.dist_gu2)  cfg.distGU2 = Number(cfgRaw.dist_gu2);
         if (cfgRaw.app_nombre) cfg.app = cfgRaw.app_nombre;
+        // migración: reemplazar nombre viejo por nuevo
+        if (cfg.app === 'finanzas familia' || cfg.app === 'Finanzas Familia') cfg.app = 'HouseholdCap';
         document.getElementById('app-title').textContent = cfg.app;
         document.getElementById('av1-el').textContent = cfg.u1;
         document.getElementById('av2-el').textContent = cfg.u2;
