@@ -287,10 +287,32 @@ La URL del Sheet en el código se configura por variable, no hardcodeada.
 
 **Componentes a implementar:**
 
-#### 1. Motor de proyección (`calcProyeccion()`)
+#### 1. Gestión de gastos recurrentes (paso previo a la proyección)
+
+La detección automática es una **sugerencia**, no una verdad. El usuario tiene control total.
+
+**Sub-widget "Gastos recurrentes para proyección"** (colapsable, arriba del gráfico):
+- El sistema detecta candidatos: gastos que aparecen en ≥2 de los últimos 3 meses (mismo desc+cat)
+- Muestra lista editable con: descripción, categoría, monto promedio, toggle ON/OFF
+- Los que están OFF no se incluyen en la proyección
+- Botón "+ Agregar" para sumar gastos recurrentes que no fueron detectados automáticamente
+- Persistencia en `localStorage` como `hc_recurrentes` (preferencia del usuario, no va a Sheets)
+
+Estructura de cada ítem:
+```js
+{
+  desc: 'OSDE cuota',
+  cat: 'Salud',
+  monto: 142000,   // promedio de los meses detectados
+  activo: true,    // toggle del usuario
+  manual: false    // true si fue agregado a mano
+}
+```
+
+#### 2. Motor de proyección (`calcProyeccion()`)
 Inputs:
 - Ingresos recurrentes (`rec=1`) → se repiten cada mes
-- Gastos recurrentes: detectados por frecuencia (mismo desc+cat en ≥2 meses de los últimos 3)
+- Gastos recurrentes: **solo los aprobados por el usuario** en el sub-widget (toggle=true)
 - Cuotas pendientes: por mes según fecha de inicio y total de cuotas (`calcCuotasPend` ya existe)
 - Deudas activas: cuota mensual fija (sistema francés ya calculado)
 
