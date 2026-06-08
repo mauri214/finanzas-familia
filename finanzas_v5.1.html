@@ -450,7 +450,7 @@ tr:hover td{background:var(--bg)}
       <div class="fg"><div class="fl">Categoría</div><select id="g-cat"></select></div>
       <div class="fg"><div class="fl">Ámbito</div><select id="g-ambito"><option value="fam">Familiar/conjunto</option><option value="u1">Personal VH</option><option value="u2">Personal MG</option></select></div>
       <div class="fg"><div class="fl">Quién pagó</div><select id="g-quien"><option value="u1">VH</option><option value="u2">MG</option><option value="comp">Ambos/Conjunto</option></select></div>
-      <div class="fg"><div class="fl">Cuotas</div><select id="g-cuotas"><option value="1">1 (contado)</option><option value="2">2</option><option value="3">3</option><option value="6">6</option><option value="12">12</option><option value="18">18</option><option value="24">24</option></select></div>
+      <div class="fg"><div class="fl">Cuotas</div><input id="g-cuotas" type="number" min="1" max="72" value="1" placeholder="1" style="width:80px"/></div>
     </div>
     <div class="fr">
       <div class="fg"><div class="fl">Medio de pago</div><select id="g-medio"><option>Tarjeta crédito</option><option>Tarjeta débito</option><option>Transferencia</option><option>Efectivo</option><option>Crypto</option></select></div>
@@ -518,7 +518,7 @@ tr:hover td{background:var(--bg)}
       <div class="fg"><div class="fl">Categoría</div><select id="eg-cat"></select></div>
       <div class="fg"><div class="fl">Ámbito</div><select id="eg-ambito"><option value="fam">Familiar</option><option value="u1">Personal VH</option><option value="u2">Personal MG</option></select></div>
       <div class="fg"><div class="fl">Quién pagó</div><select id="eg-quien"><option value="u1">VH</option><option value="u2">MG</option><option value="comp">Ambos/Conjunto</option></select></div>
-      <div class="fg"><div class="fl">Cuotas</div><select id="eg-cuotas"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="6">6</option><option value="12">12</option><option value="18">18</option><option value="24">24</option></select></div>
+      <div class="fg"><div class="fl">Cuotas</div><input id="eg-cuotas" type="number" min="1" max="72" value="1" placeholder="1" style="width:80px"/></div>
     </div>
     <div class="fr">
       <div class="fg"><div class="fl">Medio de pago</div><select id="eg-medio"><option>Tarjeta crédito</option><option>Tarjeta débito</option><option>Transferencia</option><option>Efectivo</option><option>Crypto</option></select></div>
@@ -809,6 +809,8 @@ const uN=k=>k==='u1'?cfg.u1:k==='u2'?cfg.u2:k==='fam'||k==='comp'?'Conjunto':'�
 const oc=k=>k==='fam'||k==='comp'?'own-fam':k==='u1'?'own-u1':'own-u2';
 const toARS=i=>i.mon==='USD'?i.qty*i.pe*cfg.tc:i.qty*i.pe;
 const toARSa=i=>i.mon==='USD'?i.qty*i.pa*cfg.tc:i.qty*i.pa;
+// Formatea fecha YYYY-MM-DD → DD/MM/YY para mostrar en tablas
+const fd=s=>{if(!s||s.length<10)return s||'—';const[y,m,d]=s.split('-');return`${d}/${m}/${y.slice(2)}`};
 const getMG=()=>gastos.filter(g=>{const d=new Date(g.fecha);return d.getMonth()===curM&&d.getFullYear()===curY});
 const getIng=()=>ingresos.filter(i=>{const d=new Date(i.fecha);return d.getMonth()===curM&&d.getFullYear()===curY});
 const catOpts=()=>Object.keys(CAT).map(c=>`<option>${c}</option>`).join('');
@@ -1192,7 +1194,7 @@ function renderIngresos(){
   document.getElementById('ing-table').innerHTML=`<table>
     <thead><tr><th>Fecha</th><th>Descripción</th><th>Tipo</th><th>Recurrente</th><th class="r">Quién</th><th class="r">Monto</th><th></th></tr></thead>
     <tbody>${ing.sort((a,b)=>b.fecha.localeCompare(a.fecha)).map(i=>`<tr>
-      <td style="color:var(--text3)">${i.fecha.slice(5)}</td><td style="font-weight:600">${i.desc}</td>
+      <td style="color:var(--text3)">${fd(i.fecha)}</td><td style="font-weight:600">${i.desc}</td>
       <td><span class="pill" style="background:${tc[i.tipo]||'#888'}22;color:${tc[i.tipo]||'#888'}">${i.tipo}</span></td>
       <td>${i.rec?'<span class="tag tg-green">Mensual</span>':'<span class="tag tg-gray">Único</span>'}</td>
       <td class="r"><span class="pill ${oc(i.quien)}">${uN(i.quien)}</span></td>
@@ -1215,11 +1217,11 @@ function renderGastos(){
   data.sort((a,b)=>b.fecha.localeCompare(a.fecha));
   const total=data.reduce((a,g)=>a+g.monto,0);
   document.getElementById('gastos-tbody').innerHTML=data.map(g=>`<tr>
-    <td style="color:var(--text3);white-space:nowrap">${g.fecha.slice(5)}</td>
+    <td style="color:var(--text3);white-space:nowrap">${fd(g.fecha)}</td>
     <td style="font-weight:600">${g.desc}${g.notas?'<br><span style="font-size:10px;color:var(--text3)">'+g.notas+'</span>':''}</td>
     <td><span class="pill" style="background:${CAT[g.cat]?.color||'#888'}22;color:${CAT[g.cat]?.color||'#888'}">${g.cat}</span></td>
     <td><span class="pill ${g.amb==='fam'?'tg-blue':'tg-purp'}">${g.amb==='fam'?'Familiar':g.amb==='u1'?cfg.u1:cfg.u2}</span></td>
-    <td style="color:var(--text3)">${g.cuotas>1?g.cuotas+' ctas':'—'}</td>
+    <td style="color:var(--text3)">${(()=>{if(g.cuotas<=1)return'—';const m=String(g.notas||'').match(/Cuota\s*(\d+)\/(\d+)/i);return m?`<span title="Cuota ${m[1]} de ${m[2]}">${m[1]}/${m[2]}</span>`:`${g.cuotas} ctas`})()}</td>
     <td><span class="pill ${oc(g.quien==='comp'?'fam':g.quien)}">${uN(g.quien==='comp'?'fam':g.quien)}</span></td>
     <td class="r neg" style="font-weight:700">${fa(g.monto)}</td>
     <td class="r" style="white-space:nowrap">
@@ -1646,7 +1648,7 @@ function renderImpPreview(){
           <option value="ingreso"${!esGasto?' selected':''}>💰 Ingreso</option>
         </select>
       </td>
-      <td><input type="date" value="${p.fecha}" onchange="impPending[${i}].fecha=this.value" style="font-size:11px;padding:3px;width:130px"/></td>
+      <td><input type="date" value="${p.fecha}" onchange="impPending[${i}].fecha=this.value" style="font-size:11px;padding:3px;width:120px" title="${fd(p.fecha)}"/></td>
       <td><input value="${p.desc.replace(/"/g,'&quot;')}" onchange="impPending[${i}].desc=this.value" style="font-size:11px;padding:3px;min-width:150px"/>${patronBadge}</td>
       <td><select onchange="impPending[${i}].cat=this.value" style="font-size:11px;padding:3px">${catOpts}</select></td>
       <td>${colAmbito}</td>
