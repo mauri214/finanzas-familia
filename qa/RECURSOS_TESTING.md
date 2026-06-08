@@ -1,4 +1,4 @@
-# Recursos Necesarios para Testing — HouseholdCap v5.1
+# Recursos Necesarios para Testing — HouseholdCap v5.2
 ## Módulo: Importar con IA
 
 ---
@@ -52,7 +52,7 @@ Estos son los archivos que necesitás tener a mano antes de empezar el QA.
 
 ### Antes de empezar, verificar:
 
-- [ ] El archivo `finanzas_v5.1.html` abre correctamente en el navegador
+- [ ] El archivo `finanzas_v5.2.html` abre correctamente en el navegador
 - [ ] La API key de Claude está configurada en el panel de la app
 - [ ] La app está apuntando al Google Sheets de TEST (no producción)
 - [ ] DevTools del navegador está abierto en la pestaña Consola

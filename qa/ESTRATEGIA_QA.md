@@ -1,4 +1,4 @@
-# Estrategia de QA — HouseholdCap v5.1
+# Estrategia de QA — HouseholdCap v5.2
 ## Módulo: Importar con IA
 
 ---
@@ -31,7 +31,7 @@ Validar que el módulo **Importar con IA** funciona de manera correcta, segura y
 - Testing automatizado (este es QA manual)
 - Testing de carga o estrés (muchos usuarios simultáneos)
 - Testing en dispositivos móviles (opcional, baja prioridad)
-- Testing de nuevas funcionalidades futuras (v5.2+)
+- Testing de nuevas funcionalidades futuras (v5.3+)
 - Auditoría de seguridad profunda del código
 
 ---
@@ -59,13 +59,13 @@ Verificar que los tiempos de respuesta son aceptables. Ejemplo: un PDF de 5MB se
 
 Antes de iniciar el QA, verificar que:
 
-- [ ] El módulo Importar está integrado en el HTML principal (v5.1)
+- [ ] El módulo Importar está integrado en el HTML principal (v5.2)
 - [ ] La integración con Claude API está implementada
 - [ ] El guardado en Google Sheets está implementado
 - [ ] Hay al menos un PDF real de prueba disponible
 - [ ] Se tiene una API key válida de Anthropic
 - [ ] Se tiene acceso al Google Sheets de TEST (no producción)
-- [ ] El código de v5.1 fue mergeado a la rama `main` (o está en un branch estable)
+- [ ] El código de v5.2 fue mergeado a la rama `main` (o está en un branch estable)
 
 ---
 
@@ -151,4 +151,4 @@ Ver archivo `qa/RECURSOS_TESTING.md` para el detalle completo.
 
 ---
 
-*Documento creado: 2026-06-08 | Versión: 1.0 | Módulo: Importar v5.1*
+*Documento creado: 2026-06-08 | Versión: 1.0 | Módulo: Importar v5.2*

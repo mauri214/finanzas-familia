@@ -1,4 +1,4 @@
-# Bug Reports — HouseholdCap v5.1
+# Bug Reports — HouseholdCap v5.2
 ## Módulo: Importar con IA
 
 ---
@@ -41,7 +41,7 @@
 
 **Severidad:** 🔴 Crítico / 🟠 Alto / 🟡 Medio / 🟢 Bajo
 **Módulo:** Importar
-**Versión:** v5.1
+**Versión:** v5.2
 **Test Case relacionado:** TC-XXX
 **Fecha de detección:** YYYY-MM-DD
 **Detectado por:** [nombre o "Tester"]

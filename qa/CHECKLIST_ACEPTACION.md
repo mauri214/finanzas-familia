@@ -1,4 +1,4 @@
-# Checklist de Aceptación — HouseholdCap v5.1
+# Checklist de Aceptación — HouseholdCap v5.2
 ## Módulo: Importar con IA
 
 ---
@@ -124,7 +124,7 @@
 
 ## 7. Regresión — Funcionalidades Existentes
 
-*(Verificar que nada se rompió con los cambios de v5.1)*
+*(Verificar que nada se rompió con los cambios de v5.2)*
 
 - [ ] El módulo Gastos sigue funcionando (agregar, editar, eliminar)
 - [ ] El módulo Ingresos sigue funcionando

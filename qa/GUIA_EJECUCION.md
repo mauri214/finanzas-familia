@@ -1,4 +1,4 @@
-# Guía de Ejecución del QA — HouseholdCap v5.1
+# Guía de Ejecución del QA — HouseholdCap v5.2
 ## Para el tester — instrucciones paso a paso
 
 ---
@@ -17,7 +17,7 @@ Necesitás al menos 1 extracto real de cada banco. Ver `RECURSOS_TESTING.md` par
 Guardalos en una carpeta que puedas encontrar fácil (ej: Escritorio/QA_PDFs).
 
 ### Paso 2: Abrir la app
-1. Abrí el archivo `finanzas_v5.1.html` en Chrome (doble click o arrastrar al navegador)
+1. Abrí el archivo `finanzas_v5.2.html` en Chrome (doble click o arrastrar al navegador)
 2. Verificá que la app carga correctamente (ves el dashboard, los módulos, etc.)
 
 ### Paso 3: Configurar la API key
@@ -144,7 +144,7 @@ La consola muestra mensajes que el código genera. Lo importante:
 Si necesitás guardar el progreso del QA en git:
 
 ```bash
-# Ver en qué rama estás (debería decir qa/testing-v5.1)
+# Ver en qué rama estás (debería decir qa/testing-v5.2)
 git branch
 
 # Guardar los cambios de los archivos .md del QA

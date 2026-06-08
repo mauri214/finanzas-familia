@@ -1,4 +1,4 @@
-# Test Cases — HouseholdCap v5.1
+# Test Cases — HouseholdCap v5.2
 ## Módulo: Importar con IA
 
 ---
