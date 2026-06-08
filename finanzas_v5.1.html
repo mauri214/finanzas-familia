@@ -1564,9 +1564,12 @@ function buildImpPending(transacciones){
     const esGasto=t.tipo!=='ingreso';
     const catGastoOk=CAT[t.categoriaSugerida]?t.categoriaSugerida:'Otros';
     const catIngOk=tiposIngreso.includes(t.categoriaSugerida)?t.categoriaSugerida:'Otro';
-    // Cuotas: Claude puede devolver cuotaActual y cuotasTotal
-    const cuotasTotal=parseInt(t.cuotasTotal)||1;
-    const cuotaActual=parseInt(t.cuotaActual)||1;
+    // Cuotas: Claude puede devolver cuotaActual y cuotasTotal (varios nombres posibles)
+    const cuotaActual=parseInt(t.cuotaActual||t.cuota_actual||t.cuotaactual)||1;
+    const cuotasTotal=Math.max(
+      parseInt(t.cuotasTotal||t.cuotas_total||t.totalCuotas||t.total_cuotas||t.cuotas)||1,
+      cuotaActual
+    );
     return{
       fecha:t.fecha||td(),
       desc:(t.descripcion||'').slice(0,80),
@@ -1622,10 +1625,13 @@ function renderImpPreview(){
 
     // Columna Cuotas — muestra cuotaActual/cuotasTotal, editable
     const cuotaActual=p.cuotaActual||1;
-    const cuotasTotal=p.cuotas||1;
+    // Si cuotaActual > cuotasTotal es error de extracción — usar cuotaActual como mínimo
+    const cuotasTotal=Math.max(p.cuotas||1, cuotaActual);
     const colCuotas=esGasto
-      ?`<span style="font-size:11px;white-space:nowrap">
-          <input type="number" min="1" value="${cuotaActual}" onchange="impPending[${i}].cuotaActual=+this.value" style="width:28px;font-size:11px;padding:2px;text-align:center">/<input type="number" min="1" value="${cuotasTotal}" onchange="impPending[${i}].cuotas=+this.value" style="width:28px;font-size:11px;padding:2px;text-align:center">
+      ?`<span style="font-size:12px;white-space:nowrap;display:inline-flex;align-items:center;gap:2px">
+          <input type="number" min="1" value="${cuotaActual}" onchange="impPending[${i}].cuotaActual=+this.value" style="width:34px;font-size:12px;padding:3px;text-align:center;border:1px solid var(--border);border-radius:6px">
+          <span style="color:var(--text3)">/</span>
+          <input type="number" min="1" value="${cuotasTotal}" onchange="impPending[${i}].cuotas=Math.max(+this.value,impPending[${i}].cuotaActual||1)" style="width:34px;font-size:12px;padding:3px;text-align:center;border:1px solid var(--border);border-radius:6px">
          </span>`
       :`<span style="color:var(--text3);font-size:11px">—</span>`;
 
