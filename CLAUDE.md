@@ -3,7 +3,7 @@
 ## Contexto del proyecto
 Este es un proyecto de finanzas personales para una pareja.
 Siempre leer PROYECTO.md al inicio de cada sesión para retomar el contexto completo.
-El archivo principal es finanzas_v4.html (o la versión más reciente disponible en la carpeta).
+El archivo principal es finanzas_v5.2.html (o la versión más reciente disponible en la carpeta).
 
 ## Permisos generales — no pedir confirmación para estas acciones
 - Leer, crear y editar archivos dentro de esta carpeta y sus subcarpetas
@@ -49,7 +49,7 @@ El archivo principal es finanzas_v4.html (o la versión más reciente disponible
 finanzas-familia/
 ├── CLAUDE.md              ← este archivo
 ├── PROYECTO.md            ← contexto y documentación del proyecto
-├── finanzas_v4.html       ← versión actual del frontend
+├── finanzas_v5.2.html     ← versión actual del frontend
 ├── appsscript/
 │   ├── Code.gs            ← API Google Apps Script (pendiente)
 │   └── Migrations.gs      ← scripts de migración por versión (pendiente)
