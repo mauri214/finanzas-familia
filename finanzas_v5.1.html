@@ -378,7 +378,7 @@ tr:hover td{background:var(--bg)}
         <thead><tr>
           <th style="width:28px"><input type="checkbox" id="chk-all" onchange="selectAllImp(this.checked)" title="Seleccionar todos"></th>
           <th class="imp-thead-tipo">Tipo</th>
-          <th>Fecha</th><th>Descripción</th><th>Categoría / Tipo ingreso</th><th>Ámbito / Usuario</th><th class="r">Monto</th><th></th>
+          <th>Fecha</th><th>Descripción</th><th>Categoría / Tipo ingreso</th><th>Ámbito</th><th>Usuario</th><th style="min-width:60px">Cuotas</th><th class="r">Monto</th><th></th>
         </tr></thead>
         <tbody id="imp-tbody"></tbody>
       </table></div>
@@ -1393,14 +1393,33 @@ async function extractTextFromPDF(file){
 // ── LLAMADA A CLAUDE API (vía Apps Script proxy — evita CORS) ─────────────────
 // La API key de Claude vive en Apps Script Script Properties (no en el browser).
 // Si el Apps Script no está configurado → fallback al parser básico.
+// Construye un mapa de patrones desde gastos existentes para ayudar a Claude
+function buildPatrones(){
+  const mapa={};
+  // Tomar los últimos 3 meses de gastos
+  const hace3m=new Date(); hace3m.setMonth(hace3m.getMonth()-3);
+  gastos.filter(g=>new Date(g.fecha)>=hace3m).forEach(g=>{
+    const key=g.desc.toLowerCase().replace(/\s+/g,' ').trim();
+    if(!mapa[key]) mapa[key]={desc:g.desc,cat:g.cat,amb:g.amb,quien:g.quien,cnt:0};
+    mapa[key].cnt++;
+  });
+  // Retornar top 30 más frecuentes como string compacto para el prompt
+  return Object.values(mapa)
+    .sort((a,b)=>b.cnt-a.cnt)
+    .slice(0,30)
+    .map(p=>`${p.desc}|${p.cat}|${p.amb}|${p.quien}`)
+    .join('\n');
+}
+
 async function parseWithClaudeAPI(textoExtraido){
   if(!DB.enabled()) throw new Error('NO_SHEETS'); // sin Apps Script no hay proxy
 
   const catGasto=Object.keys(CAT).join(',');
   const catIngreso='Sueldo neto,Premio / bono,Aguinaldo,Negocio / freelance,Alquiler cobrado,Dividendos,Devolución,Otro';
+  const patrones=buildPatrones();
 
   // Fetch directo (sin DB.call) para ver el error real sin que se trague
-  const body={action:'callClaude',token:DB.token,texto:textoExtraido,catGasto,catIngreso};
+  const body={action:'callClaude',token:DB.token,texto:textoExtraido,catGasto,catIngreso,patrones};
   let json;
   try{
     const res=await fetch(DB.url,{method:'POST',body:JSON.stringify(body)});
@@ -1534,19 +1553,30 @@ function buildImpPending(transacciones){
   const owner=document.getElementById('imp-owner').value;
   const medio=document.getElementById('imp-medio').value;
   const tiposIngreso=['Sueldo neto','Premio / bono','Aguinaldo','Negocio / freelance','Alquiler cobrado','Dividendos','Devolución','Otro'];
+  // Construir mapa de patrones para marcar coincidencias
+  const patronMap={};
+  const hace3m=new Date(); hace3m.setMonth(hace3m.getMonth()-3);
+  gastos.filter(g=>new Date(g.fecha)>=hace3m).forEach(g=>{
+    patronMap[g.desc.toLowerCase().trim()]=true;
+  });
 
   impPending=transacciones.map(t=>{
     const esGasto=t.tipo!=='ingreso';
     const catGastoOk=CAT[t.categoriaSugerida]?t.categoriaSugerida:'Otros';
     const catIngOk=tiposIngreso.includes(t.categoriaSugerida)?t.categoriaSugerida:'Otro';
+    // Cuotas: Claude puede devolver cuotaActual y cuotasTotal
+    const cuotasTotal=parseInt(t.cuotasTotal)||1;
+    const cuotaActual=parseInt(t.cuotaActual)||1;
     return{
       fecha:t.fecha||td(),
       desc:(t.descripcion||'').slice(0,80),
       monto:Math.abs(parseFloat(t.monto)||0),
       tipo:esGasto?'gasto':'ingreso',
       cat:esGasto?catGastoOk:catIngOk,
-      amb:esGasto?'fam':undefined,
-      owner,medio,cuotas:1,sel:true
+      amb:esGasto?(CAT[catGastoOk]?.amb==='ind'?'ind':'fam'):'fam',
+      quien:owner==='fam'?(esGasto?'comp':owner):owner,
+      medio,cuotas:cuotasTotal,cuotaActual,sel:true,
+      patronReconocido:!!patronMap[(t.descripcion||'').toLowerCase().trim()]
     };
   }).filter(t=>t.monto>0);
 
@@ -1574,17 +1604,34 @@ function renderImpPreview(){
     const catOpts=esGasto
       ?Object.keys(CAT).map(c=>`<option${c===p.cat?' selected':''}>${c}</option>`).join('')
       :tiposIngreso.map(t=>`<option${t===p.cat?' selected':''}>${t}</option>`).join('');
-    const ambitoUsuario=esGasto
+
+    // Columna Ámbito — solo para gastos (ingreso no tiene ámbito)
+    const colAmbito=esGasto
       ?`<select onchange="impPending[${i}].amb=this.value" style="font-size:11px;padding:3px">
           <option value="fam"${p.amb==='fam'?' selected':''}>Familiar</option>
-          <option value="u1"${p.amb==='u1'?' selected':''}>Personal ${cfg.u1}</option>
-          <option value="u2"${p.amb==='u2'?' selected':''}>Personal ${cfg.u2}</option>
+          <option value="ind"${p.amb==='ind'?' selected':''}>Individual</option>
          </select>`
-      :`<select onchange="impPending[${i}].owner=this.value" style="font-size:11px;padding:3px">
-          <option value="u1"${p.owner==='u1'?' selected':''}>${cfg.u1}</option>
-          <option value="u2"${p.owner==='u2'?' selected':''}>${cfg.u2}</option>
-          <option value="fam"${p.owner==='fam'?' selected':''}>Conjunto</option>
-         </select>`;
+      :`<span style="color:var(--text3);font-size:11px">—</span>`;
+
+    // Columna Usuario — quién pagó/recibió
+    const colQuien=`<select onchange="impPending[${i}].quien=this.value" style="font-size:11px;padding:3px">
+        <option value="u1"${p.quien==='u1'?' selected':''}>${cfg.u1}</option>
+        <option value="u2"${p.quien==='u2'?' selected':''}>${cfg.u2}</option>
+        <option value="comp"${p.quien==='comp'?' selected':''}>Ambos</option>
+       </select>`;
+
+    // Columna Cuotas — muestra cuotaActual/cuotasTotal, editable
+    const cuotaActual=p.cuotaActual||1;
+    const cuotasTotal=p.cuotas||1;
+    const colCuotas=esGasto
+      ?`<span style="font-size:11px;white-space:nowrap">
+          <input type="number" min="1" value="${cuotaActual}" onchange="impPending[${i}].cuotaActual=+this.value" style="width:28px;font-size:11px;padding:2px;text-align:center">/<input type="number" min="1" value="${cuotasTotal}" onchange="impPending[${i}].cuotas=+this.value" style="width:28px;font-size:11px;padding:2px;text-align:center">
+         </span>`
+      :`<span style="color:var(--text3);font-size:11px">—</span>`;
+
+    // Badge de patrón reconocido
+    const patronBadge=p.patronReconocido?` <span title="Patrón reconocido de meses anteriores" style="font-size:10px;color:var(--acc-m)">✦</span>`:'';
+
     return`<tr style="${!p.sel?'opacity:.4':''}">
       <td><input type="checkbox" ${p.sel?'checked':''} onchange="impPending[${i}].sel=this.checked;renderImpPreview()"></td>
       <td>
@@ -1594,9 +1641,11 @@ function renderImpPreview(){
         </select>
       </td>
       <td><input type="date" value="${p.fecha}" onchange="impPending[${i}].fecha=this.value" style="font-size:11px;padding:3px;width:130px"/></td>
-      <td><input value="${p.desc.replace(/"/g,'&quot;')}" onchange="impPending[${i}].desc=this.value" style="font-size:11px;padding:3px;min-width:150px"/></td>
+      <td><input value="${p.desc.replace(/"/g,'&quot;')}" onchange="impPending[${i}].desc=this.value" style="font-size:11px;padding:3px;min-width:150px"/>${patronBadge}</td>
       <td><select onchange="impPending[${i}].cat=this.value" style="font-size:11px;padding:3px">${catOpts}</select></td>
-      <td>${ambitoUsuario}</td>
+      <td>${colAmbito}</td>
+      <td>${colQuien}</td>
+      <td>${colCuotas}</td>
       <td class="r ${esGasto?'neg':'pos'}" style="font-weight:700">${fa(p.monto)}</td>
       <td><button class="del-btn" onclick="impPending.splice(${i},1);renderImpPreview()" title="Eliminar fila"><i class="ti ti-trash"></i></button></td>
     </tr>`;
@@ -1607,11 +1656,12 @@ function selectAllImp(v){impPending.forEach(p=>p.sel=v);document.getElementById(
 
 // Agregar fila vacía manualmente
 function impAddRow(){
+  const ownerVal=document.getElementById('imp-owner').value;
   impPending.push({
     fecha:td(),desc:'',monto:0,tipo:'gasto',cat:'Otros',amb:'fam',
-    owner:document.getElementById('imp-owner').value,
+    quien:ownerVal==='fam'?'comp':ownerVal,
     medio:document.getElementById('imp-medio').value,
-    cuotas:1,sel:true
+    cuotas:1,cuotaActual:1,sel:true
   });
   renderImpPreview();
 }
@@ -1941,9 +1991,9 @@ async function confirmImport(){
   // Insertar gastos en módulo Gastos
   const nuevosGastos=selGastos.map(p=>({
     id:nid++,fecha:p.fecha,desc:p.desc,cat:p.cat,
-    amb:p.amb||'fam',quien:p.owner,
+    amb:p.amb||'fam',quien:p.quien||'comp',
     medio:p.medio||'Extracto banco',
-    monto:p.monto,cuotas:p.cuotas||1,notas:'Importado con IA'
+    monto:p.monto,cuotas:p.cuotas||1,notas:p.cuotas>1?`Cuota ${p.cuotaActual||1}/${p.cuotas}`:'Importado'
   }));
   nuevosGastos.forEach(r=>gastos.push(r));
 

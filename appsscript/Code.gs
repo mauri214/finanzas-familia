@@ -291,33 +291,73 @@ function callClaude(body) {
   if (!texto || texto.length < 20) {
     return { ok: false, error: 'Texto vacío o muy corto para interpretar.' };
   }
+  // Sanitizar: quitar caracteres de control y caracteres raros que rompen JSON downstream
+  texto = texto.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ' ').replace(/\s+/g, ' ');
 
-  var catGasto  = body.catGasto  || 'Supermercado,Transporte,Servicios,Salud,Educación,Hogar,Restaurantes,Entretenimiento,Ropa,Belleza/cuidado,Gustos personales,Regalos,Otros';
+  // Pre-filtrar: extraer solo líneas que parecen transacciones
+  // Cubre formatos conocidos de bancos argentinos:
+  //   BBVA / BNA-Mastercard: "01-May-26"
+  //   BNA-Visa:              "13.05.26"
+  //   Banco Santa Fe:        "26 Mayo 05" o "25 Noviem. 06"
+  //   Santander / otros:     "01/05/26"
+  var lineas = texto.split('\n');
+  var transLines = lineas.filter(function(l) {
+    var tieneFecha =
+      /\d{1,2}[-\/][A-Za-z]{3,}\.?[-\/]\d{2,4}/.test(l) ||   // 01-May-26
+      /\d{2}\.\d{2}\.\d{2,4}/.test(l) ||                       // 13.05.26
+      /^\d{2}\s+[A-Za-z]{3,}\.?\s+\d{1,2}\b/.test(l.trim()) || // 26 Mayo 05
+      /^\d{1,2}\/[a-záéíóúñ]{3,4}\b/i.test(l.trim());          // 5/mar, 26/abr (Mercado Pago)
+    var tieneMonto = /\d{1,3}[.,]\d{3}/.test(l);
+    var esRuido = /^[_\s\-]+$/.test(l.trim()) ||               // líneas de guiones/guión bajo
+      /SU PAGO EN PESOS|SALDO ANTERIOR|SALDO ACTUAL|PAGO M[IÍ]NIMO|TOTAL CON|SUBTOTAL|IMPUESTO|PERCEP|BONIF\./.test(l.toUpperCase());
+    return tieneFecha && tieneMonto && !esRuido;
+  });
+  // Si encontramos líneas de transacción, usar solo esas
+  if (transLines.length > 1) {
+    texto = 'Extracto bancario Argentina. Transacciones:\n' + transLines.join('\n');
+  }
+  // Limitar a 6000 chars
+  texto = texto.slice(0, 6000);
+
+  var catGasto   = body.catGasto   || 'Supermercado,Transporte,Servicios,Salud,Educación,Hogar,Restaurantes,Entretenimiento,Ropa,Belleza/cuidado,Gustos personales,Regalos,Otros';
   var catIngreso = body.catIngreso || 'Sueldo neto,Premio / bono,Aguinaldo,Negocio / freelance,Alquiler cobrado,Dividendos,Devolución,Otro';
+  var patrones   = body.patrones   || '';
   var anio = new Date().getFullYear();
+
+  var patronSection = patrones
+    ? '\nHISTORIAL DE GASTOS PREVIOS — usá esto para mejorar descripción/categoría cuando coincida:\n' +
+      'Formato por línea: descripcionOriginal|categoría|ámbito|usuario\n' + patrones + '\n'
+    : '';
 
   var systemPrompt = 'Eres un asistente especializado en interpretar extractos bancarios en español argentino.\n' +
     'Tu tarea:\n' +
-    '1. Analizar el texto del extracto bancario (cualquier banco argentino: BBVA, Nación, Santa Fe, Mercado Pago, etc.)\n' +
+    '1. Analizar el texto del extracto (BBVA, Nación, Santa Fe, Mercado Pago, etc.)\n' +
     '2. Identificar CADA transacción: fecha, monto, descripción\n' +
-    '3. Clasificar cada una como "gasto" o "ingreso"\n' +
-    '4. Sugerir la mejor categoría de las listas válidas\n' +
-    '5. Retornar SOLO JSON válido, sin markdown ni explicaciones\n\n' +
+    '3. Clasificar como "gasto" o "ingreso"\n' +
+    '4. Sugerir categoría de las listas válidas\n' +
+    '5. Extraer info de cuotas (ej: "C.03/06"→cuotaActual=3,cuotasTotal=6; "3 de 6"→igual)\n' +
+    '6. Si descripción coincide con historial → usar misma descripción+categoría, patronReconocido=true\n' +
+    '7. Retornar SOLO JSON válido, sin markdown\n\n' +
     'Categorías válidas de GASTOS: [' + catGasto + ']\n' +
-    'Categorías válidas de INGRESOS: [' + catIngreso + ']\n\n' +
-    'Reglas:\n' +
-    '- Débitos, compras, pagos, signo negativo → gasto\n' +
-    '- Acreditaciones, haberes, transferencias recibidas, signo positivo → ingreso\n' +
-    '- Fechas en formato YYYY-MM-DD. Si falta el año usar ' + anio + '\n' +
-    '- Montos: número decimal positivo sin símbolos\n' +
-    '- Descripciones: máx 60 caracteres\n' +
-    '- categoriaSugerida: nombre EXACTO de la lista. Si no encaja → "Otros" o "Otro"\n\n' +
+    'Categorías válidas de INGRESOS: [' + catIngreso + ']\n' +
+    patronSection +
+    '\nReglas:\n' +
+    '- Débitos, compras, pagos → gasto\n' +
+    '- Acreditaciones, haberes, transferencias recibidas → ingreso\n' +
+    '- Pagos de tarjeta y saldos anteriores → IGNORAR (no incluir)\n' +
+    '- Fechas en formato YYYY-MM-DD:\n' +
+    '  BBVA/BNA-MC "01-May-26"→"2026-05-01" | BNA-Visa "13.05.26"→"2026-05-13"\n' +
+    '  Santa Fe "26 Mayo 05"→"2026-05-05" | MercadoPago "5/mar"→inferir año del documento\n' +
+    '  Año faltante: usar ' + anio + '\n' +
+    '- Montos: número positivo sin símbolos ni puntos de miles (148033.24 no 148.033,24)\n' +
+    '- Descripciones: máx 60 chars, sin nros de cupón ni prefijos * K\n' +
+    '- Si no hay cuotas: cuotaActual=1, cuotasTotal=1\n\n' +
     'Retornar SOLO este JSON:\n' +
-    '{"transacciones":[{"fecha":"2024-06-15","descripcion":"Compra en Disco","monto":4250.00,"tipo":"gasto","categoriaSugerida":"Supermercado"}]}';
+    '{"transacciones":[{"fecha":"2026-05-09","descripcion":"Carrefour Rosario","monto":148033.24,"tipo":"gasto","categoriaSugerida":"Supermercado","cuotaActual":1,"cuotasTotal":1,"patronReconocido":false}]}';
 
   var payload = JSON.stringify({
     model: 'claude-haiku-4-5',
-    max_tokens: 2000,
+    max_tokens: 4096,
     system: systemPrompt,
     messages: [{ role: 'user', content: 'Extracto bancario:\n\n' + texto.slice(0, 8000) }]
   });
@@ -336,7 +376,7 @@ function callClaude(body) {
   try {
     var response = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', options);
     var code = response.getResponseCode();
-    var responseText = response.getContentText();
+    var responseText = response.getContentText('UTF-8');
 
     if (code !== 200) {
       var errData = JSON.parse(responseText);
@@ -346,11 +386,36 @@ function callClaude(body) {
     var data = JSON.parse(responseText);
     var content = data.content && data.content[0] ? data.content[0].text : '';
 
-    // Extraer JSON de la respuesta
+    // Extraer el bloque JSON de la respuesta
     var match = content.match(/\{[\s\S]*\}/);
     if (!match) return { ok: false, error: 'Respuesta inesperada de Claude (sin JSON)' };
 
-    var parsed = JSON.parse(match[0]);
+    var jsonStr = match[0];
+
+    // Sanitizar: eliminar caracteres de control que rompen JSON.parse
+    jsonStr = jsonStr.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '');
+
+    // Intentar parsear; si falla, intentar reparar JSON truncado
+    var parsed;
+    try {
+      parsed = JSON.parse(jsonStr);
+    } catch (parseErr) {
+      // Intento 2: reparar JSON cortado — buscar el último objeto completo y cerrar el array
+      var lastComplete = jsonStr.lastIndexOf('},');
+      if (lastComplete === -1) lastComplete = jsonStr.lastIndexOf('}');
+      if (lastComplete > 0) {
+        var repaired = jsonStr.substring(0, lastComplete + 1) + ']}';
+        try {
+          parsed = JSON.parse(repaired);
+          Logger.log('JSON reparado por truncamiento — ' + (parsed.transacciones ? parsed.transacciones.length : 0) + ' transacciones');
+        } catch (e2) {
+          return { ok: false, error: 'Error al parsear respuesta de Claude: ' + parseErr.message };
+        }
+      } else {
+        return { ok: false, error: 'Error al parsear respuesta de Claude: ' + parseErr.message };
+      }
+    }
+
     return { ok: true, data: parsed };
 
   } catch (err) {
