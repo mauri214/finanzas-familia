@@ -6,12 +6,23 @@ Herramienta de finanzas personales para una pareja (2 usuarios), construida como
 
 ## Estado actual
 
-- **Versión del prototipo:** v4.1 (`finanzas_v4.html`)
+- **Versión activa:** v5.1 (`finanzas_v5.1.html`)
 - **Stack:** HTML + CSS + JavaScript vanilla (sin frameworks), un solo archivo
 - **Persistencia:** Google Sheets via Apps Script (con token de seguridad). Fallback a memoria si no hay URL configurada.
 - **Repo:** github.com/mauri214/finanzas-familia
 - **URL pública:** https://mauri214.github.io/finanzas-familia/
-- **Próximo paso:** libre — los 3 pilares base están funcionando
+- **Diseño:** Aston Martin — British Racing Green #003A2F, Ivory #F5F0E8, Carbon Black #0A0A0A
+- **App name:** HouseholdCap
+
+### Novedades v5 / v5.1
+- Rediseño premium completo (Aston Martin palette, Duolingo-style UI)
+- Health Score widget con 4 pilares (ahorro, inversión, deuda, metas)
+- Módulo Importar con IA: PDF upload (pdf.js) + Claude API via Apps Script proxy
+- Soporte multi-banco: BBVA, BNA Mastercard, BNA Visa, Banco Santa Fe, Mercado Pago
+- Preview editable con columnas: Tipo, Fecha, Descripción, Categoría, Ámbito, Usuario, Cuotas (X/Y), Monto
+- Reconocimiento de patrones: gastos repetidos se marcan con ✦ y heredan categoría/ámbito
+- Fechas en formato DD/MM/YY en todas las tablas
+- Cuotas como input numérico libre (cubre cualquier plazo)
 
 ---
 
@@ -259,12 +270,74 @@ La URL del Sheet en el código se configura por variable, no hardcodeada.
 
 ## Pendientes / Roadmap
 
+### Completados
 - [x] Conectar Google Sheets como base de datos ✓
 - [x] Configurar GitHub para versionado ✓
 - [x] URL fija para acceso desde celular ✓ → https://mauri214.github.io/finanzas-familia/
+- [x] Rediseño premium Aston Martin ✓
+- [x] Health Score widget ✓
+- [x] Módulo Importar con IA (Claude API via Apps Script proxy) ✓
+- [x] Soporte multi-banco (BBVA, BNA, Santa Fe, Mercado Pago) ✓
+- [x] Reconocimiento de patrones históricos en importación ✓
+- [x] Cuotas X/Y en importación y módulo Gastos ✓
+
+### Próxima iteración — v5.2: Proyección Financiera en Dashboard
+
+**Objetivo:** Widget en Dashboard que proyecte ingresos, gastos y disponible mes a mes hasta diciembre del año en curso, con incentivo de inversión por interés compuesto.
+
+**Componentes a implementar:**
+
+#### 1. Motor de proyección (`calcProyeccion()`)
+Inputs:
+- Ingresos recurrentes (`rec=1`) → se repiten cada mes
+- Gastos recurrentes: detectados por frecuencia (mismo desc+cat en ≥2 meses de los últimos 3)
+- Cuotas pendientes: por mes según fecha de inicio y total de cuotas (`calcCuotasPend` ya existe)
+- Deudas activas: cuota mensual fija (sistema francés ya calculado)
+
+Output por mes (mes actual → diciembre):
+```
+{
+  mes: 'julio',
+  ingresos: 3_200_000,
+  gastosRecurrentes: 1_800_000,
+  cuotasPendientes: 420_000,
+  deudas: 180_000,
+  disponible: 800_000,      // ingresos - todo lo anterior
+  acumulado: 800_000        // suma del disponible desde hoy
+}
+```
+
+#### 2. Gráfico de barras apiladas (mes a mes)
+- Barras: ingresos (verde), gastos recurrentes (rojo), cuotas (naranja), deudas (marrón)
+- Línea: disponible acumulado
+- Rango: mes actual → diciembre
+
+#### 3. Widget "¿Qué pasa si invierto el disponible?"
+- Input: % del disponible mensual a invertir (slider, default 30%)
+- TEM configurable (default: 5% mensual — referencia plazo fijo)
+- Cálculo de interés compuesto mes a mes sobre el disponible proyectado
+- Muestra capital + intereses acumulados a diciembre
+
+#### 4. Frases motivacionales
+- Rotación de 8-10 frases de Buffett, Bogle, Munger, etc. en español
+- Contextuales: si el disponible proyectado cae en algún mes → mensaje de alerta
+- Si el disponible es positivo todos los meses → mensaje de incentivo a invertir
+
+**Datos necesarios (ya disponibles):**
+- `gastos[]` con `fecha`, `desc`, `cat`, `cuotas`, `monto`
+- `ingresos[]` con `monto`, `rec`
+- `deudas[]` con `cap`, `tna`, `plazo`, `pag`
+- `calcCuotasPend(m, y)` → ya existe en el código
+
+**No requiere cambios en Google Sheets** — toda la proyección es calculada en frontend.
+
+---
+
+### Backlog futuro
 - [ ] Conectar API Binance (read-only) para PNL automático de crypto
-- [ ] Notificaciones de metas próximas a vencer (opcional)
-- [ ] Exportación a PDF del resumen mensual (opcional)
+- [ ] Notificaciones de metas próximas a vencer
+- [ ] Exportación a PDF del resumen mensual
+- [ ] App nativa (PWA → App Store / Play Store)
 
 ---
 
