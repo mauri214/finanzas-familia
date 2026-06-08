@@ -614,9 +614,7 @@ const DB = {
         if (cfgRaw.app_nombre) cfg.app = cfgRaw.app_nombre;
         // migración: reemplazar nombre viejo por nuevo
         if (cfg.app === 'finanzas familia' || cfg.app === 'Finanzas Familia') cfg.app = 'HouseholdCap';
-        document.getElementById('app-title').textContent = cfg.app;
-        document.getElementById('av1-el').textContent = cfg.u1.slice(0,2).toUpperCase();
-        document.getElementById('av2-el').textContent = cfg.u2.slice(0,2).toUpperCase();
+        applyNames();
       }
 
       // Recalcular nid para evitar colisiones
@@ -797,6 +795,13 @@ function calcHealthScore({ingT,gT,bal,cDeu,cTarj,tAct,sdoT,activas}){
   const total=p1+p2+p3+p4;
   const pct=total/100;
 
+  // Sin datos aún
+  if(ingT===0 && tAct===0 && activas.length===0){
+    return {total:0,pct:0,level:'Sin datos aún',emoji:'📊',color:'#888',pillars:[],
+      tip:'Comenzá cargando tus <strong>ingresos del mes</strong> para calcular tu Health Score financiero.',
+      p1:0,p2:0,p3:0,p4:0,p1pct:0,p2pct:0,p3pct:0,p4pct:0};
+  }
+
   let level,emoji,color;
   if(total>=85){level='Salud Excelente';emoji='🏆';color='#4CAF50';}
   else if(total>=70){level='Salud Buena';emoji='💪';color='#8BC34A';}
@@ -846,14 +851,14 @@ function renderHealthScore(hs){
         <div class="health-next">Próximo nivel a <strong>${hs.total<30?30:hs.total<50?50:hs.total<70?70:hs.total<85?85:100} pts</strong></div>
       </div>
     </div>
-    <div class="health-pillars">
+    ${hs.pillars.length===0?'':`<div class="health-pillars">
       ${pillarData.map(p=>`<div class="pillar">
         <div class="pillar-label">${p.label}</div>
         <div class="pillar-val" style="color:${p.color}">${p.score}<span style="font-size:9px;opacity:.4">/${p.max}</span></div>
         <div class="pillar-sub">${Math.round(p.pct*100)}%</div>
         <div class="pillar-bar"><div class="pillar-fill" style="width:${Math.round(p.score/p.max*100)}%;background:${p.color}"></div></div>
       </div>`).join('')}
-    </div>
+    </div>`}
     <div class="health-tip">
       <div class="health-tip-icon">💡</div>
       <div class="health-tip-text">${hs.tip}</div>
@@ -926,7 +931,7 @@ function renderDashMes(){
     <div class="sep">Inversiones</div>
     <div class="g3">
       <div class="met blue"><div class="ml">Total cartera</div><div class="mv">${fa(tAct)}</div></div>
-      <div class="met ${pnl>=0?'green':'red'}"><div class="ml">PNL total</div><div class="mv">${pnl>=0?'+':''}${fa(pnl)}</div><div class="ms">${fp(pnl/tInv*100)}</div></div>
+      <div class="met ${pnl>=0?'green':'red'}"><div class="ml">PNL total</div><div class="mv">${pnl>=0?'+':''}${fa(pnl)}</div><div class="ms">${tInv>0?fp(pnl/tInv*100):'—'}</div></div>
       <div class="met"><div class="ml">Posiciones</div><div class="mv">${inversiones.length}</div></div>
     </div>
 
@@ -1568,13 +1573,38 @@ async function saveCfg(){
   const token=document.getElementById('s-script-token').value.trim();
   if(url) DB.setUrl(url);
   if(token) DB.setToken(token);
-  document.getElementById('app-title').textContent=cfg.app;
-  document.getElementById('av1-el').textContent=cfg.u1.slice(0,2).toUpperCase();
-  document.getElementById('av2-el').textContent=cfg.u2.slice(0,2).toUpperCase();
-  document.querySelectorAll('[id^="gtab-"]').forEach(el=>{if(el.id==='gtab-u1')el.textContent=cfg.u1;if(el.id==='gtab-u2')el.textContent=cfg.u2});
-  document.querySelectorAll('[id^="dtab-"]').forEach(el=>{if(el.id==='dtab-u1')el.textContent=cfg.u1;if(el.id==='dtab-u2')el.textContent=cfg.u2});
+  applyNames();
   closeModal('modal-cfg');toast('Configuración guardada');renderDash();
   await DB.setCfg({u1_nombre:cfg.u1,u2_nombre:cfg.u2,tc:cfg.tc,app_nombre:cfg.app,dist_modo:distMode,dist_inv:cfg.distInv,dist_gu1:cfg.distGU1,dist_gu2:cfg.distGU2});
+}
+
+// ======= APPLY NAMES =======
+function applyNames(){
+  const u1=cfg.u1, u2=cfg.u2;
+  // Topbar
+  document.getElementById('app-title').textContent=cfg.app;
+  document.getElementById('av1-el').textContent=u1.slice(0,2).toUpperCase();
+  document.getElementById('av2-el').textContent=u2.slice(0,2).toUpperCase();
+  // Tabs de filtro
+  const gtab1=document.getElementById('gtab-u1'); if(gtab1) gtab1.textContent=u1;
+  const gtab2=document.getElementById('gtab-u2'); if(gtab2) gtab2.textContent=u2;
+  const dtab1=document.getElementById('dtab-u1'); if(dtab1) dtab1.textContent=u1;
+  const dtab2=document.getElementById('dtab-u2'); if(dtab2) dtab2.textContent=u2;
+  // Selects en modales: actualiza solo las opciones u1/u2
+  const updateSel=(id,texts)=>{
+    const el=document.getElementById(id); if(!el) return;
+    el.querySelectorAll('option').forEach(o=>{
+      if(o.value==='u1') o.textContent=texts.u1||u1;
+      if(o.value==='u2') o.textContent=texts.u2||u2;
+    });
+  };
+  updateSel('g-quien',{u1,u2});
+  updateSel('g-ambito',{u1:'Personal '+u1, u2:'Personal '+u2});
+  updateSel('in-quien',{u1,u2});
+  updateSel('eg-quien',{u1,u2});
+  updateSel('eg-ambito',{u1:'Personal '+u1, u2:'Personal '+u2});
+  updateSel('d-own',{u1,u2});
+  updateSel('imp-owner',{u1,u2});
 }
 
 // ======= CATS =======
@@ -1620,6 +1650,7 @@ function toast(msg,err){
 document.getElementById('g-fecha').value=td();
 document.getElementById('in-fecha').value=td();
 fillCatSel('g-cat');
+applyNames();
 renderDash();
 (async()=>{
   if(DB.enabled()){
