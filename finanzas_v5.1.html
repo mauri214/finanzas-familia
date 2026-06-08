@@ -1398,9 +1398,9 @@ function buildPatrones(){
   const mapa={};
   // Tomar los últimos 3 meses de gastos
   const hace3m=new Date(); hace3m.setMonth(hace3m.getMonth()-3);
-  gastos.filter(g=>new Date(g.fecha)>=hace3m).forEach(g=>{
-    const key=g.desc.toLowerCase().replace(/\s+/g,' ').trim();
-    if(!mapa[key]) mapa[key]={desc:g.desc,cat:g.cat,amb:g.amb,quien:g.quien,cnt:0};
+  gastos.filter(g=>new Date(g.fecha)>=hace3m&&g.desc).forEach(g=>{
+    const key=String(g.desc).toLowerCase().replace(/\s+/g,' ').trim();
+    if(!mapa[key]) mapa[key]={desc:String(g.desc),cat:g.cat,amb:g.amb,quien:g.quien,cnt:0};
     mapa[key].cnt++;
   });
   // Retornar top 30 más frecuentes como string compacto para el prompt
@@ -1556,8 +1556,8 @@ function buildImpPending(transacciones){
   // Construir mapa de patrones para marcar coincidencias
   const patronMap={};
   const hace3m=new Date(); hace3m.setMonth(hace3m.getMonth()-3);
-  gastos.filter(g=>new Date(g.fecha)>=hace3m).forEach(g=>{
-    patronMap[g.desc.toLowerCase().trim()]=true;
+  gastos.filter(g=>new Date(g.fecha)>=hace3m&&g.desc).forEach(g=>{
+    patronMap[String(g.desc).toLowerCase().trim()]=true;
   });
 
   impPending=transacciones.map(t=>{
