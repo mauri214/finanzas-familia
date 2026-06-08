@@ -1399,16 +1399,19 @@ async function parseWithClaudeAPI(textoExtraido){
   const catGasto=Object.keys(CAT).join(',');
   const catIngreso='Sueldo neto,Premio / bono,Aguinaldo,Negocio / freelance,Alquiler cobrado,Dividendos,Devolución,Otro';
 
-  // Llamamos al Apps Script con action=callClaude
-  const result=await DB.call('callClaude',null,{
-    texto:textoExtraido,
-    catGasto,
-    catIngreso
-  });
+  // Fetch directo (sin DB.call) para ver el error real sin que se trague
+  const body={action:'callClaude',token:DB.token,texto:textoExtraido,catGasto,catIngreso};
+  let json;
+  try{
+    const res=await fetch(DB.url,{method:'POST',body:JSON.stringify(body)});
+    json=await res.json();
+  }catch(e){
+    throw new Error('Sin conexión con Apps Script: '+e.message);
+  }
 
-  if(!result||!result.ok) throw new Error(result?.error||'Error desconocido en Apps Script');
-  if(!result.data?.transacciones) throw new Error('Respuesta inesperada del servidor');
-  return result.data;
+  if(!json||!json.ok) throw new Error(json?.error||'Apps Script devolvió error desconocido');
+  if(!json.data?.transacciones) throw new Error('Respuesta inesperada del servidor (sin transacciones)');
+  return json.data;
 }
 
 // ── HELPER: STATUS VISUAL ─────────────────────────────────────────────────────
@@ -1500,17 +1503,27 @@ function processImportBasico(text){
   const [mesY,mesM]=mesVal.split('-').map(Number);
   const lines=text.split('\n').filter(l=>l.trim().length>3);
   const parsed=[];
+
   lines.forEach(line=>{
-    const m=line.match(/(\d{1,2}[\/\-]\d{1,2}(?:[\/\-]\d{2,4})?)\s+(.+?)\s+\$?\s*([\d.,]+)\s*$/);
+    // Patrón 1: fecha + descripción + monto al final (formato estándar)
+    // Patrón 2: fecha + nro_operacion + descripción + monto (formato BBVA)
+    // Regex ampliado: captura descripción greedy para incluir texto completo entre fecha y monto
+    const m=line.match(/(\d{1,2}[\/\-]\d{1,2}(?:[\/\-]\d{2,4})?)\s+(.+?)\s+\$?\s*([\d]{1,3}(?:[.,]\d{3})*(?:[.,]\d{1,2})?)\s*$/);
     if(m){
-      const monto=parseFloat(m[3].replace(/\./g,'').replace(',','.'));
+      const montoStr=m[3].replace(/\./g,'').replace(',','.');
+      const monto=parseFloat(montoStr);
       if(monto>0&&monto<100000000){
         const day=parseInt(m[1].split(/[\/\-]/)[0]);
         const fecha=`${mesY}-${String(mesM).padStart(2,'0')}-${String(Math.min(day,28)).padStart(2,'0')}`;
-        parsed.push({fecha,descripcion:m[2].trim(),monto,tipo:'gasto',categoriaSugerida:'Otros'});
+        // Limpiar descripción: si empieza con número largo (nro operación BBVA), quitarlo
+        let desc=m[2].trim();
+        desc=desc.replace(/^\d{5,}\s+/,''); // quita nro de operación tipo "0267389 "
+        if(!desc) desc=m[2].trim(); // fallback si quedó vacío
+        parsed.push({fecha,descripcion:desc.slice(0,80),monto,tipo:'gasto',categoriaSugerida:'Otros'});
       }
     }
   });
+
   if(!parsed.length){toast('No se detectaron transacciones. Revisá el formato.',true);return;}
   buildImpPending(parsed);
   toast(`${parsed.length} transacciones detectadas (parser básico — sin IA)`);
