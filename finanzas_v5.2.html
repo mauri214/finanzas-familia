@@ -244,11 +244,10 @@ input:checked+.proy-slider:before{transform:translateX(16px)}
 .proy-rec-del:hover{color:var(--dan)}
 .proy-manual-tag{font-size:9px;background:var(--purp-l);color:var(--purp);border-radius:4px;padding:1px 5px;font-weight:700;text-transform:uppercase}
 /* Bar chart */
-.proy-chart{display:flex;align-items:flex-end;gap:4px;padding-bottom:4px;overflow-x:auto;min-height:110px}
+.proy-chart{display:flex;align-items:flex-end;gap:4px;padding-bottom:4px;overflow-x:auto;min-height:130px}
 .proy-col{display:flex;flex-direction:column;align-items:center;flex:1;min-width:40px;gap:2px}
-.proy-bars{display:flex;flex-direction:column;align-items:center;width:100%;justify-content:flex-end;gap:1px}
-.proy-bar-seg{width:80%;border-radius:2px 2px 0 0;min-height:2px;transition:height .3s}
-.proy-bar-seg:last-child{border-radius:2px 2px 0 0}
+.proy-stacked{display:flex;flex-direction:column-reverse;width:75%;border-radius:3px;overflow:hidden;border:1px solid var(--border)}
+.proy-bar-seg{width:100%;min-height:2px;transition:height .3s}
 .proy-col-lbl{font-size:9px;color:var(--text3);font-weight:600;margin-top:3px;white-space:nowrap}
 .proy-col-disp{font-size:9px;font-weight:800;white-space:nowrap}
 .proy-chart-legend{display:flex;flex-wrap:wrap;gap:10px;font-size:11px;margin-top:8px}
@@ -1262,29 +1261,34 @@ function renderProyeccion(){
     </div>`).join('')
     :`<div style="font-size:12px;color:var(--text3);padding:8px 0">No se detectaron gastos recurrentes en los últimos 3 meses. Agregá uno manualmente.</div>`;
 
-  // Bar chart
-  const maxV=Math.max(...meses.map(me=>me.ingresos),1);
+  // Bar chart — stacked: segmentos proporcionales dentro de barra total = ingresos
+  const BAR_H=100; // altura máxima en px
+  const maxV=Math.max(...meses.map(me=>Math.max(me.ingresos,me.gastosRec+me.cuotas+me.deudas)),1);
   const chartHtml=`<div class="proy-chart">
     ${meses.map(me=>{
-      const hIng=Math.round(me.ingresos/maxV*90);
-      const hGR=Math.round(me.gastosRec/maxV*90);
-      const hCT=Math.round(me.cuotas/maxV*90);
-      const hDe=Math.round(me.deudas/maxV*90);
+      const totalBarra=Math.round(me.ingresos/maxV*BAR_H);
+      const base=me.ingresos||1;
+      // Segmentos: desde abajo: deudas, cuotas, recurrentes, disponible (lo que sobra)
+      const hDe=Math.max(0,Math.round(me.deudas/base*totalBarra));
+      const hCT=Math.max(0,Math.round(me.cuotas/base*totalBarra));
+      const hGR=Math.max(0,Math.round(me.gastosRec/base*totalBarra));
+      const hDisp=Math.max(0,totalBarra-hDe-hCT-hGR);
       const dispColor=me.disponible>=0?'var(--acc-m)':'var(--dan)';
+      const esNeg=me.disponible<0;
       return `<div class="proy-col">
         <div class="proy-col-disp" style="color:${dispColor}">${me.disponible>=0?'+':''}${Math.round(me.disponible/1000)}k</div>
-        <div class="proy-bars" style="height:90px">
-          <div class="proy-bar-seg" style="height:${hIng}px;background:var(--acc-l);border:1px solid var(--acc-m)" title="Ingresos ${fa(me.ingresos)}"></div>
-          <div class="proy-bar-seg" style="height:${hGR}px;background:#F5DEDE;border:1px solid var(--dan)" title="Recurrentes ${fa(me.gastosRec)}"></div>
-          ${hCT>0?`<div class="proy-bar-seg" style="height:${hCT}px;background:var(--warn-l);border:1px solid var(--warn)" title="Cuotas ${fa(me.cuotas)}"></div>`:''}
-          ${hDe>0?`<div class="proy-bar-seg" style="height:${hDe}px;background:#F0E8D8;border:1px solid #B87A1A" title="Deudas ${fa(me.deudas)}"></div>`:''}
+        <div class="proy-stacked" style="height:${totalBarra}px" title="Ingresos ${fa(me.ingresos)}">
+          ${hDisp>0?`<div class="proy-bar-seg" style="height:${hDisp}px;background:${esNeg?'var(--dan-l)':'var(--acc-l)'}" title="Disponible ${fa(me.disponible)}"></div>`:''}
+          ${hGR>0?`<div class="proy-bar-seg" style="height:${hGR}px;background:#F5DEDE" title="Recurrentes ${fa(me.gastosRec)}"></div>`:''}
+          ${hCT>0?`<div class="proy-bar-seg" style="height:${hCT}px;background:var(--warn-l)" title="Cuotas ${fa(me.cuotas)}"></div>`:''}
+          ${hDe>0?`<div class="proy-bar-seg" style="height:${hDe}px;background:#F0E8D8" title="Créditos ${fa(me.deudas)}"></div>`:''}
         </div>
         <div class="proy-col-lbl">${MONTHS[me.m].slice(0,3)}</div>
       </div>`;
     }).join('')}
   </div>
   <div class="proy-chart-legend">
-    <span><span class="proy-leyend-dot" style="background:var(--acc-l);border:1px solid var(--acc-m)"></span>Ingresos</span>
+    <span><span class="proy-leyend-dot" style="background:var(--acc-l);border:1px solid var(--acc-m)"></span>Disponible</span>
     <span><span class="proy-leyend-dot" style="background:#F5DEDE;border:1px solid var(--dan)"></span>Recurrentes</span>
     <span><span class="proy-leyend-dot" style="background:var(--warn-l);border:1px solid var(--warn)"></span>Cuotas</span>
     <span><span class="proy-leyend-dot" style="background:#F0E8D8;border:1px solid #B87A1A"></span>Créditos</span>

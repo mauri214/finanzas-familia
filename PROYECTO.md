@@ -6,13 +6,22 @@ Herramienta de finanzas personales para una pareja (2 usuarios), construida como
 
 ## Estado actual
 
-- **Versión activa:** v5.1 (`finanzas_v5.1.html`)
+- **Versión activa:** v5.2 (`finanzas_v5.2.html`)
 - **Stack:** HTML + CSS + JavaScript vanilla (sin frameworks), un solo archivo
 - **Persistencia:** Google Sheets via Apps Script (con token de seguridad). Fallback a memoria si no hay URL configurada.
 - **Repo:** github.com/mauri214/finanzas-familia
 - **URL pública:** https://mauri214.github.io/finanzas-familia/
 - **Diseño:** Aston Martin — British Racing Green #003A2F, Ivory #F5F0E8, Carbon Black #0A0A0A
 - **App name:** HouseholdCap
+
+### Novedades v5.2 (actual)
+- Widget de Proyección Financiera en Dashboard (vista mensual, hasta diciembre del año en curso)
+- Sub-widget de gastos recurrentes: detección automática (≥2 de últimos 3 meses), toggles ON/OFF, agregar manual
+- Persistencia de preferencias en `localStorage` como `hc_recurrentes`
+- Gráfico de barras apiladas (stacked bar): disponible + recurrentes + cuotas + créditos proporcionales al ingreso
+- Calculadora de interés compuesto: slider % disponible + TEM configurable, actualiza en tiempo real
+- Frases motivacionales (Buffett, Bogle, Munger) con rotación diaria
+- Alerta visual si algún mes proyectado queda en disponible negativo
 
 ### Novedades v5 / v5.1
 - Rediseño premium completo (Aston Martin palette, Duolingo-style UI)
@@ -280,8 +289,9 @@ La URL del Sheet en el código se configura por variable, no hardcodeada.
 - [x] Soporte multi-banco (BBVA, BNA, Santa Fe, Mercado Pago) ✓
 - [x] Reconocimiento de patrones históricos en importación ✓
 - [x] Cuotas X/Y en importación y módulo Gastos ✓
+- [x] Widget de Proyección Financiera en Dashboard (v5.2) ✓
 
-### Próxima iteración — v5.2: Proyección Financiera en Dashboard
+### Completado — v5.2: Proyección Financiera en Dashboard
 
 **Objetivo:** Widget en Dashboard que proyecte ingresos, gastos y disponible mes a mes hasta diciembre del año en curso, con incentivo de inversión por interés compuesto.
 
