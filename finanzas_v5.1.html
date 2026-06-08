@@ -568,24 +568,21 @@ tr:hover td{background:var(--bg)}
       <button class="cx" onclick="closeModal('modal-claude-key')">×</button>
     </div>
     <p style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.5">
-      Con tu API key de Anthropic, HouseholdCap interpreta automáticamente cualquier
-      extracto bancario (BBVA, Nación, Mercado Pago, etc.) y separa gastos e ingresos sin
-      configuración manual.
+      La interpretación IA funciona a través de tu Google Apps Script (evita restricciones del navegador).
+      La API key de Claude se guarda en <b>Script Properties</b> del proyecto Apps Script, no en el browser.
     </p>
-    <div id="claude-key-badge" style="display:none;margin-bottom:10px"></div>
-    <div class="fg" style="margin-bottom:8px">
-      <div class="fl">API Key de Anthropic</div>
-      <input type="password" id="claude-key-input" placeholder="sk-ant-api03-..." autocomplete="off"/>
+    <div style="font-size:11px;color:var(--text2);margin-bottom:14px;line-height:1.7;background:var(--bg);border-radius:var(--r);padding:12px;border:1.5px solid var(--border)">
+      <b>Pasos para configurar:</b><br>
+      1. Abrí tu proyecto en <a href="https://script.google.com" target="_blank" style="color:var(--acc-m)">script.google.com</a><br>
+      2. Hacé click en el engranaje ⚙️ → <b>Propiedades de secuencia de comandos</b><br>
+      3. Agregá una propiedad: <code style="background:var(--bg2);padding:1px 5px;border-radius:4px">CLAUDE_API_KEY</code> → tu key de Anthropic<br>
+      4. Guardá y volvé a deployar el Apps Script como Web App<br><br>
+      🔑 Obtené tu key: <a href="https://console.anthropic.com/keys" target="_blank" style="color:var(--acc-m)">console.anthropic.com/keys</a>
+      · Costo típico por extracto: &lt; U$D 0.01
     </div>
-    <div style="font-size:11px;color:var(--text3);margin-bottom:14px;line-height:1.5;background:var(--bg);border-radius:var(--r);padding:10px;border:1.5px solid var(--border)">
-      🔒 <b>Privacidad:</b> La key se guarda solo en este dispositivo (localStorage).
-      Nunca se sube a Google Sheets, GitHub ni ningún servidor.<br><br>
-      🔑 Obtené tu key en: <a href="https://console.anthropic.com/keys" target="_blank" style="color:var(--acc-m)">console.anthropic.com/keys</a>
-      (plan gratuito disponible — costo típico por extracto: &lt; U$D 0.01)
-    </div>
+    <div id="claude-key-badge" style="margin-bottom:10px"></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="bp" onclick="saveClaudeKey()"><i class="ti ti-check"></i>Guardar key</button>
-      <button class="bs" onclick="deleteClaudeKey()"><i class="ti ti-trash"></i>Eliminar</button>
+      <button class="bp" onclick="testClaudeProxy()"><i class="ti ti-plug"></i>Verificar configuración</button>
       <button class="bs" onclick="closeModal('modal-claude-key')">Cerrar</button>
     </div>
     <div id="claude-key-status" style="margin-top:10px;font-size:12px;font-weight:600"></div>
@@ -1287,47 +1284,47 @@ const CLAUDE_KEY_LS='householdcap_claude_api_key';
 const getClaudeKey=()=>localStorage.getItem(CLAUDE_KEY_LS)||'';
 
 function openClaudeKeyModal(){
-  const key=getClaudeKey();
-  const inp=document.getElementById('claude-key-input');
-  if(inp) inp.value=key?'sk-ant-...configurada':'';
-  const badge=document.getElementById('claude-key-badge');
-  if(badge){
-    badge.style.display=key?'block':'none';
-    badge.innerHTML=key?`<span class="ia-badge"><i class="ti ti-check"></i> API key configurada en este dispositivo</span>`:'';
-  }
   document.getElementById('claude-key-status').textContent='';
   openModal('modal-claude-key');
 }
 
-function saveClaudeKey(){
-  const raw=document.getElementById('claude-key-input').value.trim();
+// Verifica que el proxy de Apps Script esté operativo llamando con texto de prueba
+async function testClaudeProxy(){
   const st=document.getElementById('claude-key-status');
-  // Aceptar si empieza con sk-ant- o es reingresada (no mostramos la real)
-  if(!raw||raw==='sk-ant-...configurada'){st.style.color='var(--dan)';st.textContent='⚠ Ingresá una key válida (sk-ant-...)';return}
-  if(!raw.startsWith('sk-ant-')){st.style.color='var(--dan)';st.textContent='⚠ La key debe comenzar con sk-ant-';return}
-  localStorage.setItem(CLAUDE_KEY_LS,raw);
-  st.style.color='var(--acc-m)';st.textContent='✓ Key guardada en este dispositivo';
-  updateIAConfigBtn();
-  setTimeout(()=>closeModal('modal-claude-key'),1200);
-  toast('API key de Claude configurada');
+  if(!DB.enabled()){
+    st.style.color='var(--dan)';
+    st.textContent='⚠ Primero configurá la URL y token del Apps Script en Configuración (⚙️).';
+    return;
+  }
+  st.style.color='var(--warn)';st.textContent='Verificando conexión con IA...';
+  try{
+    const r=await DB.call('callClaude',null,{
+      texto:'01/06 SUPERMERCADO $1000\n02/06 ACRED HABER $50000',
+      catGasto:Object.keys(CAT).join(','),
+      catIngreso:'Sueldo neto,Otro'
+    });
+    if(r&&r.ok&&r.data?.transacciones?.length){
+      st.style.color='var(--acc-m)';
+      st.textContent=`✓ IA funcionando — detectó ${r.data.transacciones.length} transacciones de prueba`;
+      updateIAConfigBtn(true);
+    } else {
+      st.style.color='var(--dan)';
+      st.textContent=`⚠ ${r?.error||'Respuesta inesperada. Verificá que CLAUDE_API_KEY esté en Script Properties y que redeploy aste el Apps Script.'}`;
+    }
+  }catch(e){
+    st.style.color='var(--dan)';
+    st.textContent=`⚠ Error: ${e.message}`;
+  }
 }
 
-function deleteClaudeKey(){
-  localStorage.removeItem(CLAUDE_KEY_LS);
-  document.getElementById('claude-key-input').value='';
-  document.getElementById('claude-key-badge').style.display='none';
-  document.getElementById('claude-key-status').style.color='var(--text3)';
-  document.getElementById('claude-key-status').textContent='Key eliminada.';
-  updateIAConfigBtn();
-  toast('API key eliminada');
-}
-
-// Actualiza el botón de config IA según si hay key configurada
-function updateIAConfigBtn(){
+// El botón muestra estado según si el proxy responde OK (se guarda en localStorage como flag)
+function updateIAConfigBtn(activa){
   const btn=document.getElementById('ia-config-btn');
   if(!btn)return;
-  const tiene=!!getClaudeKey();
-  btn.innerHTML=tiene?'<i class="ti ti-robot" style="color:var(--acc-m)"></i> IA activa':'<i class="ti ti-robot"></i> Config. IA';
+  if(activa===true) localStorage.setItem('hc_ia_ok','1');
+  if(activa===false) localStorage.removeItem('hc_ia_ok');
+  const ok=localStorage.getItem('hc_ia_ok')==='1'&&DB.enabled();
+  btn.innerHTML=ok?'<i class="ti ti-robot" style="color:var(--acc-m)"></i> IA activa':'<i class="ti ti-robot"></i> Config. IA';
 }
 
 // ── TABS DEL MÓDULO IMPORTAR ──────────────────────────────────────────────────
@@ -1393,65 +1390,25 @@ async function extractTextFromPDF(file){
   });
 }
 
-// ── LLAMADA A CLAUDE API ──────────────────────────────────────────────────────
+// ── LLAMADA A CLAUDE API (vía Apps Script proxy — evita CORS) ─────────────────
+// La API key de Claude vive en Apps Script Script Properties (no en el browser).
+// Si el Apps Script no está configurado → fallback al parser básico.
 async function parseWithClaudeAPI(textoExtraido){
-  const key=getClaudeKey();
-  if(!key) throw new Error('NO_KEY');
+  if(!DB.enabled()) throw new Error('NO_SHEETS'); // sin Apps Script no hay proxy
 
-  const catGasto=Object.keys(CAT).join(', ');
-  const catIngreso='Sueldo neto, Premio / bono, Aguinaldo, Negocio / freelance, Alquiler cobrado, Dividendos, Devolución, Otro';
-  const anioActual=new Date().getFullYear();
+  const catGasto=Object.keys(CAT).join(',');
+  const catIngreso='Sueldo neto,Premio / bono,Aguinaldo,Negocio / freelance,Alquiler cobrado,Dividendos,Devolución,Otro';
 
-  const systemPrompt=`Eres un asistente especializado en interpretar extractos bancarios en español argentino.
-Tu tarea:
-1. Analizar el texto del extracto bancario (de cualquier banco argentino: BBVA, Nación, Santa Fe, Mercado Pago, etc.)
-2. Identificar CADA transacción: fecha, monto, descripción clara
-3. Clasificar cada una como "gasto" o "ingreso"
-4. Sugerir la mejor categoría de las listas válidas
-5. Retornar SOLO JSON válido, sin markdown ni explicaciones adicionales
-
-Categorías válidas de GASTOS: [${catGasto}]
-Categorías válidas de INGRESOS: [${catIngreso}]
-
-Reglas:
-- Signo negativo (-) o débitos → gasto
-- Signo positivo (+), acreditaciones, transferencias recibidas, haberes → ingreso
-- Si es ambiguo: analizar descripción (ACRED, HABER, SUELDO → ingreso; COMPRA, PAGO, DEB → gasto)
-- Fechas: formato YYYY-MM-DD. Si falta el año usar ${anioActual}
-- Montos: número decimal positivo, sin símbolos ni signos
-- Descripciones: máx 60 caracteres, claras y concisas
-- categoriaSugerida: usar EXACTAMENTE un nombre de las listas. Si no encaja → "Otros" o "Otro"
-
-Retornar SOLO este JSON sin nada más:
-{"transacciones":[{"fecha":"2024-06-15","descripcion":"Compra en Disco","monto":4250.00,"tipo":"gasto","categoriaSugerida":"Supermercado"},{"fecha":"2024-06-01","descripcion":"Acreditación haberes junio","monto":350000.00,"tipo":"ingreso","categoriaSugerida":"Sueldo neto"}]}`;
-
-  const resp=await fetch('https://api.anthropic.com/v1/messages',{
-    method:'POST',
-    headers:{
-      'Content-Type':'application/json',
-      'x-api-key':key,
-      'anthropic-version':'2023-06-01',
-      'anthropic-dangerous-allow-browser':'true'
-    },
-    body:JSON.stringify({
-      model:'claude-haiku-4-5',   // modelo económico, suficiente para extracción estructurada
-      max_tokens:2000,
-      system:systemPrompt,
-      messages:[{role:'user',content:`Extracto bancario a interpretar:\n\n${textoExtraido.slice(0,8000)}`}]
-    })
+  // Llamamos al Apps Script con action=callClaude
+  const result=await DB.call('callClaude',null,{
+    texto:textoExtraido,
+    catGasto,
+    catIngreso
   });
 
-  if(!resp.ok){
-    const err=await resp.json().catch(()=>({}));
-    throw new Error(err.error?.message||`HTTP ${resp.status}`);
-  }
-
-  const data=await resp.json();
-  const txt=data.content?.[0]?.text||'';
-  // Extraer solo el JSON (por si Claude agrega texto antes/después)
-  const match=txt.match(/\{[\s\S]*\}/);
-  if(!match) throw new Error('Respuesta inesperada de Claude — sin JSON');
-  return JSON.parse(match[0]);
+  if(!result||!result.ok) throw new Error(result?.error||'Error desconocido en Apps Script');
+  if(!result.data?.transacciones) throw new Error('Respuesta inesperada del servidor');
+  return result.data;
 }
 
 // ── HELPER: STATUS VISUAL ─────────────────────────────────────────────────────
@@ -1480,7 +1437,7 @@ async function processPDF(file){
     return;
   }
 
-  if(getClaudeKey()){
+  if(DB.enabled()){
     setImpStatus('Interpretando transacciones con IA...','loading');
     try{
       const result=await parseWithClaudeAPI(texto);
@@ -1491,18 +1448,18 @@ async function processPDF(file){
       buildImpPending(result.transacciones);
       setImpStatus(`✓ ${result.transacciones.length} transacciones detectadas por IA`,'ok');
     }catch(err){
-      if(err.message==='NO_KEY'){
-        // no debería pasar (verificamos arriba), pero por si acaso
+      if(err.message==='NO_SHEETS'){
         fallbackTextoManual(texto);
+        setImpStatus('Configurá el Apps Script primero para usar IA.','warn');
       } else {
-        setImpStatus(`Error de IA: ${err.message}. Texto extraído disponible para editar.`,'warn');
+        setImpStatus(`${err.message}. Texto disponible para editar manualmente.`,'warn');
         fallbackTextoManual(texto);
       }
     }
   } else {
-    // Sin key → mostrar texto en panel manual
+    // Sin Apps Script → mostrar texto en panel manual
     fallbackTextoManual(texto);
-    setImpStatus('Texto extraído. <b>Configurá tu API key</b> para interpretación automática, o procesá manualmente.','warn');
+    setImpStatus('Configurá el Apps Script (⚙️) para habilitar la interpretación con IA.','warn');
   }
 }
 
@@ -1516,7 +1473,7 @@ function fallbackTextoManual(texto){
 async function processImportTexto(){
   const text=document.getElementById('imp-text').value.trim();
   if(!text){toast('Pegá el texto primero',true);return;}
-  if(getClaudeKey()){
+  if(DB.enabled()){
     setImpStatus('Interpretando con IA...','loading','imp-ia-status-texto');
     try{
       const result=await parseWithClaudeAPI(text);
@@ -1527,7 +1484,7 @@ async function processImportTexto(){
       buildImpPending(result.transacciones);
       setImpStatus(`✓ ${result.transacciones.length} transacciones detectadas`,'ok','imp-ia-status-texto');
     }catch(err){
-      setImpStatus(`Error de IA: ${err.message}. Usando parser básico...`,'warn','imp-ia-status-texto');
+      setImpStatus(`${err.message}. Usando parser básico...`,'warn','imp-ia-status-texto');
       processImportBasico(text);
     }
   } else {

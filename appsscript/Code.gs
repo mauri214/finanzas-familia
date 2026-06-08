@@ -1,8 +1,10 @@
 // ============================================================
-// Finanzas Familia — Apps Script API
-// Versión: v4
+// HouseholdCap — Apps Script API
+// Versión: v5.1
 // Hojas: Gastos, Ingresos, Inversiones, Metas, Deudas,
 //        Configuracion, Categorias
+// Novedad v5.1: acción callClaude — proxy server-side para
+//   evitar CORS al llamar a la API de Anthropic desde el browser
 // ============================================================
 
 var SPREADSHEET_ID = 'REEMPLAZAR_CON_ID_DEL_SHEET';
@@ -64,6 +66,7 @@ function handleRequest(e) {
       case 'getCfg':        result = getCfg();                 break;
       case 'setCfg':        result = setCfg(data);             break;
       case 'initSheets':    result = initSheets();             break;
+      case 'callClaude':    result = callClaude(body);         break;
       default:
         result = { ok: false, error: 'Acción desconocida: ' + action };
     }
@@ -266,6 +269,93 @@ function initSheets() {
   }
 
   return { ok: true, log: log };
+}
+
+// ============================================================
+// PROXY CLAUDE API — evita CORS desde el browser
+// La API key de Claude se guarda en Script Properties:
+//   Proyecto → Configuración → Propiedades de secuencia de comandos
+//   Clave: CLAUDE_API_KEY  Valor: sk-ant-...
+// ============================================================
+
+function callClaude(body) {
+  // Leer la API key desde Script Properties (nunca hardcodeada)
+  var props = PropertiesService.getScriptProperties();
+  var claudeKey = props.getProperty('CLAUDE_API_KEY');
+
+  if (!claudeKey) {
+    return { ok: false, error: 'API key de Claude no configurada en Script Properties. Agregá la clave CLAUDE_API_KEY en Configuración del proyecto.' };
+  }
+
+  var texto = body.texto || '';
+  if (!texto || texto.length < 20) {
+    return { ok: false, error: 'Texto vacío o muy corto para interpretar.' };
+  }
+
+  var catGasto  = body.catGasto  || 'Supermercado,Transporte,Servicios,Salud,Educación,Hogar,Restaurantes,Entretenimiento,Ropa,Belleza/cuidado,Gustos personales,Regalos,Otros';
+  var catIngreso = body.catIngreso || 'Sueldo neto,Premio / bono,Aguinaldo,Negocio / freelance,Alquiler cobrado,Dividendos,Devolución,Otro';
+  var anio = new Date().getFullYear();
+
+  var systemPrompt = 'Eres un asistente especializado en interpretar extractos bancarios en español argentino.\n' +
+    'Tu tarea:\n' +
+    '1. Analizar el texto del extracto bancario (cualquier banco argentino: BBVA, Nación, Santa Fe, Mercado Pago, etc.)\n' +
+    '2. Identificar CADA transacción: fecha, monto, descripción\n' +
+    '3. Clasificar cada una como "gasto" o "ingreso"\n' +
+    '4. Sugerir la mejor categoría de las listas válidas\n' +
+    '5. Retornar SOLO JSON válido, sin markdown ni explicaciones\n\n' +
+    'Categorías válidas de GASTOS: [' + catGasto + ']\n' +
+    'Categorías válidas de INGRESOS: [' + catIngreso + ']\n\n' +
+    'Reglas:\n' +
+    '- Débitos, compras, pagos, signo negativo → gasto\n' +
+    '- Acreditaciones, haberes, transferencias recibidas, signo positivo → ingreso\n' +
+    '- Fechas en formato YYYY-MM-DD. Si falta el año usar ' + anio + '\n' +
+    '- Montos: número decimal positivo sin símbolos\n' +
+    '- Descripciones: máx 60 caracteres\n' +
+    '- categoriaSugerida: nombre EXACTO de la lista. Si no encaja → "Otros" o "Otro"\n\n' +
+    'Retornar SOLO este JSON:\n' +
+    '{"transacciones":[{"fecha":"2024-06-15","descripcion":"Compra en Disco","monto":4250.00,"tipo":"gasto","categoriaSugerida":"Supermercado"}]}';
+
+  var payload = JSON.stringify({
+    model: 'claude-haiku-4-5',
+    max_tokens: 2000,
+    system: systemPrompt,
+    messages: [{ role: 'user', content: 'Extracto bancario:\n\n' + texto.slice(0, 8000) }]
+  });
+
+  var options = {
+    method: 'post',
+    contentType: 'application/json',
+    headers: {
+      'x-api-key': claudeKey,
+      'anthropic-version': '2023-06-01'
+    },
+    payload: payload,
+    muteHttpExceptions: true
+  };
+
+  try {
+    var response = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', options);
+    var code = response.getResponseCode();
+    var responseText = response.getContentText();
+
+    if (code !== 200) {
+      var errData = JSON.parse(responseText);
+      return { ok: false, error: 'Claude API error: ' + (errData.error && errData.error.message ? errData.error.message : 'HTTP ' + code) };
+    }
+
+    var data = JSON.parse(responseText);
+    var content = data.content && data.content[0] ? data.content[0].text : '';
+
+    // Extraer JSON de la respuesta
+    var match = content.match(/\{[\s\S]*\}/);
+    if (!match) return { ok: false, error: 'Respuesta inesperada de Claude (sin JSON)' };
+
+    var parsed = JSON.parse(match[0]);
+    return { ok: true, data: parsed };
+
+  } catch (err) {
+    return { ok: false, error: 'Error al llamar a Claude: ' + err.message };
+  }
 }
 
 // ============================================================
