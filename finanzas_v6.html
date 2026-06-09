@@ -1236,8 +1236,10 @@ function renderTCModal(data){
   if(el)el.textContent=`Actualizado: ${now.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'})}`;
 }
 function aplicarTC(valor){
+  if(!valor||valor<=0) return;
   cfg.tc=valor;
-  document.getElementById('s-tc').value=valor;
+  const stcEl=document.getElementById('s-tc');
+  if(stcEl) stcEl.value=valor;
   document.getElementById('tc-chip-num').textContent=valor.toLocaleString('es-AR');
   closeModal('modal-tc');
   toast('TC aplicado: $'+valor.toLocaleString('es-AR'));
@@ -1283,16 +1285,18 @@ function renderNotificaciones(){
 }
 
 // ======= v6: BÚSQUEDA GLOBAL =======
+function escHTML(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function buscarGlobal(q){
   const cont=document.getElementById('busqueda-results');if(!cont)return;
-  if(!q||q.trim().length<2){cont.innerHTML='<div style="text-align:center;color:var(--text3);padding:24px;font-size:12px">Escribí al menos 2 caracteres</div>';return;}
+  if(!q||q.trim().length<2){cont.innerHTML='<div style="text-align:center;color:var(--text3);padding:24px;font-size:12px">Escribí al menos 2 caracteres para buscar</div>';return;}
   const ql=q.toLowerCase();
   const rG=gastos.filter(g=>(g.desc||'').toLowerCase().includes(ql)||(g.cat||'').toLowerCase().includes(ql)||(g.notas||'').toLowerCase().includes(ql)).slice(0,8);
   const rI=ingresos.filter(i=>(i.desc||'').toLowerCase().includes(ql)||(i.tipo||'').toLowerCase().includes(ql)).slice(0,5);
   const rInv=inversiones.filter(i=>(i.activo||'').toLowerCase().includes(ql)||(i.tipo||'').toLowerCase().includes(ql)||(i.plat||'').toLowerCase().includes(ql)).slice(0,5);
-  if(!rG.length&&!rI.length&&!rInv.length){cont.innerHTML=`<div style="text-align:center;color:var(--text3);padding:24px;font-size:12px">Sin resultados para "<strong>${q}</strong>"</div>`;return;}
+  if(!rG.length&&!rI.length&&!rInv.length){cont.innerHTML=`<div style="text-align:center;color:var(--text3);padding:24px;font-size:12px">Sin resultados para "<strong>${escHTML(q)}</strong>"</div>`;return;}
   let html='';
-  const hl=t=>t.replace(new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi'),m=>`<mark style="background:var(--warn-l);border-radius:2px;padding:0 1px">${m}</mark>`);
+  const safeQ=q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  const hl=t=>escHTML(t).replace(new RegExp(safeQ.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi'),m=>`<mark style="background:var(--warn-l);border-radius:2px;padding:0 1px">${m}</mark>`);
   if(rG.length)html+=`<div class="busq-grupo">Gastos (${rG.length})</div>`+rG.map(g=>`<div class="busq-item" onclick="closeModal('modal-busqueda');showSec('gastos')">
     <span style="width:8px;height:8px;border-radius:50%;background:${CAT[g.cat]?.color||'#888'};flex-shrink:0;display:inline-block"></span>
     <span class="busq-desc">${hl(g.desc)}</span>
@@ -1481,6 +1485,11 @@ function posInvARS(pos,tc){
 // Abre modal y renderiza filas editables
 function openUpdPrecios(){
   const rows=document.getElementById('upd-precios-rows');
+  if(!rows) return;
+  if(!inversiones.length){
+    rows.innerHTML='<div style="text-align:center;color:var(--text3);padding:20px">No hay activos cargados en el portafolio.</div>';
+    openModal('modal-upd-precios'); return;
+  }
   rows.innerHTML=inversiones.map(inv=>{
     const sym=inv.mon==='USD'?'U$D ':'$';
     const pnlPct=inv.pe>0?((inv.pa-inv.pe)/inv.pe*100):0;
@@ -1609,7 +1618,7 @@ function renderInvCharts(){
 
   // Gráfico barras PNL mensual
   if(pnlEl){
-    if(!pnlVals.length){pnlEl.innerHTML='<div class="snap-empty" style="padding:20px">Necesitás al menos 2 snapshots para ver el PNL mensual.</div>';return;}
+    if(!pnlVals.length){pnlEl.innerHTML='<div class="snap-empty" style="padding:20px">Necesitás al menos 2 snapshots para ver el PNL mensual.</div>';}
     pnlEl.innerHTML=svgBarrasPNL(pnlVals.map(v=>({label:fmMes(v.mes),value:v.pnl})),{w:640,h:130,sym});
   }
 
@@ -1856,7 +1865,13 @@ function showSec(id){
   document.getElementById('sec-'+id).classList.add('active');
   const map=['dashboard','ingresos','gastos','importar','inversiones','metas','deudas','simulador','cargar'];
   document.querySelectorAll('.nb').forEach((b,i)=>b.classList.toggle('active',map[i]===id));
-  ({dashboard:renderDash,ingresos:renderIngresos,gastos:()=>{renderGastos();fillCatFilter()},
+  ({dashboard:renderDash,ingresos:renderIngresos,gastos:()=>{
+    // Sincronizar tab visual con gFilter al entrar a la sección
+    document.querySelectorAll('#sec-gastos .tabs .tab').forEach(t=>t.classList.remove('active'));
+    const tabMap={'todos':0,'u1':1,'u2':2,'fam':3};
+    const tabs=document.querySelectorAll('#sec-gastos .tabs .tab');
+    if(tabs[tabMap[gFilter]||0]) tabs[tabMap[gFilter]||0].classList.add('active');
+    renderGastos();fillCatFilter();},
     importar:renderImportar,inversiones:renderInv,metas:renderMetas,deudas:renderDeudas,
     simulador:renderSimulador,
     cargar:()=>{fillCatSel('g-cat');renderCatsList();renderPresupuestosConfig()}})[id]?.();
@@ -2351,7 +2366,7 @@ function renderProyeccion(){
       <div class="ct">Proyección mensual <span>ingresos vs compromisos</span></div>
       ${ingRec===0?'<div style="font-size:12px;color:var(--text3);padding:8px 0">Agregá ingresos recurrentes (rec=1) para ver la proyección.</div>':chartHtml}
       ${ingRec>0?`<div style="display:flex;gap:12px;margin-top:10px;flex-wrap:wrap">
-        <div class="met" style="flex:1;min-width:120px"><div class="ml">Disponible total</div><div class="mv" style="color:${totalDisp>=0?'var(--acc-m)':'var(--dan)'}">${fa(Math.round(totalDisp))}</div><div class="ms">jun→dic</div></div>
+        <div class="met" style="flex:1;min-width:120px"><div class="ml">Disponible total</div><div class="mv" style="color:${totalDisp>=0?'var(--acc-m)':'var(--dan)'}">${fa(Math.round(totalDisp))}</div><div class="ms">${MONTHS[curM].slice(0,3).toLowerCase()}→dic</div></div>
         <div class="met" style="flex:1;min-width:120px"><div class="ml">Cuotas totales</div><div class="mv" style="color:var(--warn)">${fa(Math.round(meses.reduce((a,m)=>a+m.cuotas,0)))}</div></div>
         <div class="met" style="flex:1;min-width:120px"><div class="ml">Meses proyectados</div><div class="mv">${meses.length}</div></div>
       </div>`:''}
@@ -2525,9 +2540,10 @@ function renderDistResult(){
 function aplicarFiltroDates(arr,filtro){
   if(filtro.modo==='todos') return arr;
   if(filtro.modo==='mes'){
+    // Filtra por mes en cualquier año (no restringe año)
     return arr.filter(r=>{
       const d=new Date(r.fecha+'T00:00:00');
-      return d.getMonth()===filtro.mesNum && d.getFullYear()===new Date().getFullYear();
+      return d.getMonth()===filtro.mesNum;
     });
   }
   if(filtro.modo==='custom'){
@@ -2547,7 +2563,9 @@ function promDiario(arr,filtro){
   if(!arr.length) return 0;
   let dias=1;
   if(filtro.modo==='mes'){
-    dias=new Date(new Date().getFullYear(),filtro.mesNum+1,0).getDate();
+    // Usar año del primer registro encontrado o año actual
+    const anyDate=arr[0]?new Date(arr[0].fecha+'T00:00:00'):new Date();
+    dias=new Date(anyDate.getFullYear(),filtro.mesNum+1,0).getDate();
   } else if(filtro.modo==='custom'&&filtro.desde&&filtro.hasta){
     const d0=new Date(filtro.desde+'T00:00:00'),d1=new Date(filtro.hasta+'T00:00:00');
     dias=Math.max(1,Math.round((d1-d0)/(1000*60*60*24))+1);
@@ -2587,7 +2605,7 @@ function onIngFltMes(){
   renderIngresos();
 }
 function limpiarFiltroIng(){
-  ingFiltro={modo:'todos',desde:'',hasta:''};
+  ingFiltro={modo:'todos',desde:'',hasta:'',mesNum:undefined};
   document.getElementById('ing-flt-mes').value='todos';
   document.getElementById('ing-flt-custom').style.display='none';
   document.getElementById('ing-flt-desde').value='';
@@ -2611,7 +2629,7 @@ function onGastFltMes(){
   renderGastos();
 }
 function limpiarFiltroGast(){
-  gastFiltro={modo:'todos',desde:'',hasta:''};
+  gastFiltro={modo:'todos',desde:'',hasta:'',mesNum:undefined};
   document.getElementById('gast-flt-mes').value='todos';
   document.getElementById('gast-flt-custom').style.display='none';
   document.getElementById('gast-flt-desde').value='';
@@ -2627,7 +2645,9 @@ function renderIngresos(){
     ingFiltro.desde=document.getElementById('ing-flt-desde').value;
     ingFiltro.hasta=document.getElementById('ing-flt-hasta').value;
   }
-  const ingAll=getIng();
+  // Si hay filtro de fecha activo: opera sobre todos los ingresos
+  // Si no hay filtro: opera sobre getIng() (mes del dashboard, comportamiento original)
+  const ingAll=ingFiltro.modo==='todos'?getIng():ingresos;
   const ing=aplicarFiltroDates(ingAll,ingFiltro);
   updateFiltroUI('ing',ingFiltro,ingAll.length,ing.length);
 
@@ -3208,7 +3228,7 @@ function renderInv(){
   document.getElementById('inv-metrics').innerHTML=`
     <div class="met blue"><div class="ml">Total invertido</div><div class="mv">${sym}${Math.round(tI*cf).toLocaleString('es-AR')}</div></div>
     <div class="met ${pnl>=0?'green':'red'}"><div class="ml">Valor actual</div><div class="mv">${sym}${Math.round(tA*cf).toLocaleString('es-AR')}</div></div>
-    <div class="met ${pnl>=0?'green':'red'}"><div class="ml">PNL</div><div class="mv">${pnl>=0?'+':''}${sym}${Math.round(Math.abs(pnl)*cf).toLocaleString('es-AR')}</div><div class="ms">${fp(pnl/tI*100)}</div></div>`;
+    <div class="met ${pnl>=0?'green':'red'}"><div class="ml">PNL</div><div class="mv">${pnl>=0?'+':''}${sym}${Math.round(Math.abs(pnl)*cf).toLocaleString('es-AR')}</div><div class="ms">${tI>0?fp(pnl/tI*100):'—'}</div></div>`;
   const bT={};inversiones.forEach(i=>{const v=toARSa(i);bT[i.tipo]=(bT[i.tipo]||0)+v});
   const tC={'CEDEARs':'#378ADD','Bono':'#1D9E75','Crypto':'#EF9F27','FCI':'#7F77DD','Acción local':'#D85A30','Plazo fijo':'#888780'};
   const donaSegs=Object.entries(bT).map(([t,v])=>({label:t,color:tC[t]||'#888',value:v}));
@@ -3217,7 +3237,7 @@ function renderInv(){
     <div class="chart-legend" style="flex-direction:column;gap:6px;font-size:12px">${donaSegs.map(s=>`<span><span class="legend-dot" style="background:${s.color}"></span>${s.label} <strong>${Math.round(s.value/tA*100)}%</strong> — ${fa(Math.round(s.value*cf))}</span>`).join('')}</div>
   </div>`;
   document.getElementById('inv-tbody').innerHTML=inversiones.map(i=>{
-    const inv=toARS(i),act=toARSa(i),pnl=act-inv,p=pnl/inv*100;
+    const inv=toARS(i),act=toARSa(i),pnl=act-inv,p=inv>0?pnl/inv*100:0;
     const dPE=curCur==='USD'&&i.mon==='ARS'?i.pe/tc:i.mon==='USD'&&curCur==='ARS'?i.pe*tc:i.pe;
     const dPA=curCur==='USD'&&i.mon==='ARS'?i.pa/tc:i.mon==='USD'&&curCur==='ARS'?i.pa*tc:i.pa;
     return `<tr><td style="font-weight:700">${i.activo}</td><td><span class="pill tg-blue">${i.tipo}</span></td><td style="color:var(--text3);font-size:11px">${i.plat}</td><td><span class="pill tg-gray">${i.mon}</span></td>
@@ -3242,8 +3262,8 @@ function renderMetas(){
         <div><div style="font-size:14px;font-weight:700">${m.nom}</div><div style="font-size:11px;color:var(--text3);margin-top:2px">${m.tipo} · ${dias>0?dias+' días restantes':'Vencida'}</div></div>
         <div style="display:flex;gap:6px;align-items:center">
           <span style="font-size:18px;font-weight:700;color:${m.color}">${p}%</span>
-          <button class="bs" style="font-size:11px;padding:4px 8px" onclick="marcarDone(${i})" title="Marcar cumplida"><i class="ti ti-trophy"></i></button>
-          <button class="del-btn" onclick="delMeta(${i})"><i class="ti ti-trash"></i></button>
+          <button class="bs" style="font-size:11px;padding:4px 8px" onclick="marcarDone(${m.id})" title="Marcar cumplida"><i class="ti ti-trophy"></i></button>
+          <button class="del-btn" onclick="delMeta(${m.id})"><i class="ti ti-trash"></i></button>
         </div>
       </div>
       <div class="bt" style="height:10px;margin-bottom:6px"><div class="bf" style="width:${p}%;background:${m.color}"></div></div>
@@ -3464,17 +3484,15 @@ async function saveMeta(){
   closeModal('modal-meta');toast('Meta guardada');renderMetas();
   await DB.insert('Metas',rec);
 }
-async function marcarDone(i){
-  const a=metas.filter(m=>!m.done);
-  const meta=a[i];
+async function marcarDone(id){
+  const meta=metas.find(m=>m.id===id);if(!meta)return;
   meta.done=true;meta.act=meta.obj;
   renderMetas();toast('¡Meta cumplida! Se movió a trofeos');
   await DB.update('Metas',meta.id,{done:true,act:meta.obj});
 }
-async function delMeta(i){
-  const a=metas.filter(m=>!m.done);
-  const meta=a[i];
-  metas=metas.filter(m=>m!==meta);
+async function delMeta(id){
+  const meta=metas.find(m=>m.id===id);if(!meta)return;
+  metas=metas.filter(m=>m.id!==id);
   renderMetas();
   await DB.remove('Metas',meta.id);
 }
