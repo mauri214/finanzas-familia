@@ -6,7 +6,7 @@ Herramienta de finanzas personales para una pareja (2 usuarios), construida como
 
 ## Estado actual
 
-- **Versión activa:** v5.2 (`finanzas_v5.2.html`)
+- **Versión activa:** v5.3 (`finanzas_v5.3.html`)
 - **Stack:** HTML + CSS + JavaScript vanilla (sin frameworks), un solo archivo
 - **Persistencia:** Google Sheets via Apps Script (con token de seguridad). Fallback a memoria si no hay URL configurada.
 - **Repo:** github.com/mauri214/finanzas-familia
@@ -14,7 +14,17 @@ Herramienta de finanzas personales para una pareja (2 usuarios), construida como
 - **Diseño:** Aston Martin — British Racing Green #003A2F, Ivory #F5F0E8, Carbon Black #0A0A0A
 - **App name:** HouseholdCap
 
-### Novedades v5.2 (actual)
+### Novedades v5.3 (actual)
+- Campo `imputacion` (YYYY-MM) en Gastos e Ingresos: separa fecha de transacción del mes contable
+- Filtros del Dashboard, ajuste de cuentas y vista anual usan `imputacion` si está presente, sino `fecha`
+- Formulario gastos: selector "Imputar al mes" (default = mes actual)
+- Formulario ingresos: idem
+- Modal editar gasto: campo imputación editable
+- Módulo Importar: columna "Imputar a" con default = mes del extracto seleccionado
+- Tabla gastos: badge `→ Jun` cuando el mes de imputación difiere de la fecha de la transacción
+- Google Sheets: columna `imputacion` agregada al final de Gastos e Ingresos (sin romper registros existentes)
+
+### Novedades v5.2
 - Widget de Proyección Financiera en Dashboard (vista mensual, hasta diciembre del año en curso)
 - Sub-widget de gastos recurrentes: detección automática (≥2 de últimos 3 meses), toggles ON/OFF, agregar manual
 - Persistencia de preferencias en `localStorage` como `hc_recurrentes`

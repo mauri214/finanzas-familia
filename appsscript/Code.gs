@@ -16,8 +16,8 @@ var API_TOKEN = 'REEMPLAZAR_CON_TOKEN_SECRETO';
 
 // Cabeceras por hoja — orden exacto de columnas en el Sheet
 var HEADERS = {
-  Gastos:       ['id','fecha','desc','cat','amb','quien','medio','cuotas','monto','notas'],
-  Ingresos:     ['id','fecha','desc','tipo','quien','monto','rec'],
+  Gastos:       ['id','fecha','desc','cat','amb','quien','medio','cuotas','monto','notas','imputacion'],
+  Ingresos:     ['id','fecha','desc','tipo','quien','monto','rec','imputacion'],
   Inversiones:  ['id','activo','tipo','plat','mon','qty','pe','pa','fe'],
   Metas:        ['id','nom','tipo','obj','act','fecha','color','done'],
   Deudas:       ['id','nom','tipo','cap','tna','plazo','pag','ent','own'],
