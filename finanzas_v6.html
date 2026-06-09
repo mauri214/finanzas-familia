@@ -3418,7 +3418,17 @@ async function saveGasto(){
   await DB.insert('Gastos',rec);
 }
 async function delGasto(id){
-  gastos=gastos.filter(g=>g.id!==id);renderGastos();
+  gastos=gastos.filter(g=>g.id!==id);
+  // Si la vista activa queda vacía pero hay más gastos, resetear filtro de usuario
+  if(gastos.length>0 && gFilter!=='todos'){
+    const vistaVacia=!gastos.some(g=>
+      gFilter==='u1'?g.quien==='u1':gFilter==='u2'?g.quien==='u2':g.amb==='fam');
+    if(vistaVacia){
+      gFilter='todos';
+      document.querySelectorAll('#sec-gastos .tabs .tab').forEach((t,i)=>{t.classList.toggle('active',i===0);});
+    }
+  }
+  renderGastos();
   await DB.remove('Gastos',id);
 }
 function openEditGasto(id){
