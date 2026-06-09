@@ -2645,9 +2645,9 @@ function renderIngresos(){
     ingFiltro.desde=document.getElementById('ing-flt-desde').value;
     ingFiltro.hasta=document.getElementById('ing-flt-hasta').value;
   }
-  // Si hay filtro de fecha activo: opera sobre todos los ingresos
-  // Si no hay filtro: opera sobre getIng() (mes del dashboard, comportamiento original)
-  const ingAll=ingFiltro.modo==='todos'?getIng():ingresos;
+  // El módulo Ingresos siempre opera sobre todos los ingresos (no filtra por mes del dashboard)
+  // El filtro de fecha controla qué se muestra; "Todos" = sin filtro de fecha
+  const ingAll=ingresos;
   const ing=aplicarFiltroDates(ingAll,ingFiltro);
   updateFiltroUI('ing',ingFiltro,ingAll.length,ing.length);
 
