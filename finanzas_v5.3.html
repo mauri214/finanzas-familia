@@ -269,6 +269,24 @@ input:checked+.proy-slider:before{transform:translateX(16px)}
 .proy-quote{background:var(--ivory-l);border-left:4px solid var(--acc-m);border-radius:0 var(--r) var(--r) 0;padding:12px 14px;margin-bottom:14px;font-style:italic;font-size:13px;color:var(--text2);line-height:1.5}
 .proy-quote cite{display:block;margin-top:6px;font-style:normal;font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px}
 .proy-alert{background:var(--warn-l);border:1.5px solid var(--warn);border-radius:var(--r);padding:10px 14px;font-size:12px;color:#633806;font-weight:600;margin-bottom:12px;display:flex;gap:8px;align-items:flex-start}
+/* ===== PALETA DE COLORES ===== */
+.paleta-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.paleta-card{border:2px solid var(--border);border-radius:var(--r);overflow:hidden;cursor:pointer;transition:transform .15s,border-color .15s,box-shadow .15s;position:relative}
+.paleta-card:hover{border-color:var(--acc-m);transform:translateY(-1px);box-shadow:3px 4px 0 var(--border)}
+.paleta-card.paleta-activa{border-color:var(--acc-m);box-shadow:3px 4px 0 var(--acc-l)}
+.paleta-preview{height:42px;display:flex}
+.paleta-preview-seg{flex:1}
+.paleta-info{padding:8px 10px;display:flex;align-items:center;justify-content:space-between;gap:6px;background:var(--white)}
+.paleta-nombre{font-size:12px;font-weight:700;color:var(--text)}
+.paleta-etiq{font-size:9px;font-weight:800;padding:2px 7px;border-radius:10px;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap}
+.pet-femenina{background:#FDDDE6;color:#9B4F6A}
+.pet-masculina{background:#D0DCEF;color:#1B3A6B}
+.pet-unisex{background:var(--gray-l);color:var(--gray)}
+.pet-premium{background:#F4E8C0;color:#8B6914}
+.pet-fintech{background:#DBEAFE;color:#1D4ED8}
+.pet-oscuro{background:#3D2870;color:#C4A8F8}
+.paleta-check{position:absolute;top:7px;right:7px;width:18px;height:18px;border-radius:50%;background:var(--acc-m);color:#fff;font-size:10px;display:flex;align-items:center;justify-content:center;font-weight:800;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+@media(max-width:420px){.paleta-grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -279,6 +297,7 @@ input:checked+.proy-slider:before{transform:translateX(16px)}
   <div class="avatars">
     <div class="av av1" id="av1-el">VH</div>
     <div class="av av2" id="av2-el">MG</div>
+    <button class="icon-btn" onclick="openModal('modal-paleta')" title="Cambiar paleta de colores"><i class="ti ti-palette"></i></button>
     <button class="icon-btn" onclick="openModal('modal-cfg')"><i class="ti ti-settings"></i></button>
   </div>
 </div>
@@ -643,6 +662,21 @@ input:checked+.proy-slider:before{transform:translateX(16px)}
   </div>
 </div>
 
+<!-- MODAL PALETA DE COLORES -->
+<div class="modal-bg" id="modal-paleta">
+  <div class="modal" style="max-width:540px">
+    <div class="modal-title">
+      <span><i class="ti ti-palette"></i> Paleta de colores</span>
+      <button class="cx" onclick="closeModal('modal-paleta')">×</button>
+    </div>
+    <p style="font-size:12px;color:var(--text2);margin-bottom:4px">Elegí el estilo visual de la app. Se guarda automáticamente.</p>
+    <div class="paleta-grid" id="paleta-grid"></div>
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <button class="bs" onclick="closeModal('modal-paleta')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -854,6 +888,140 @@ let deudas=[
 ];
 
 let impPending=[];
+
+// ======= PALETAS DE COLORES =======
+const PALETAS=[
+  {
+    id:'aston',nombre:'Aston Martin',etiq:'Default',tipo:'premium',
+    preview:['#0A0A0A','#003A2F','#F5F0E8'],
+    vars:{'--bg':'#F4F1EC','--bg2':'#EAE6DF','--bg3':'#F4F1EC','--white':'#FDFCF9',
+      '--acc':'#003A2F','--acc-m':'#005C48','--acc-l':'#D6E8E4','--acc-d':'#001F19',
+      '--ivory':'#F5F0E8','--ivory-d':'#8A8078','--ivory-l':'#FAF7F2',
+      '--carbon':'#0A0A0A','--border':'#C8C0B0','--border2':'#A89880',
+      '--text':'#0A1A14','--text2':'#3D5247','--text3':'#7A9488'}
+  },
+  {
+    id:'rose',nombre:'Rose Petal',etiq:'Femenina',tipo:'femenina',
+    preview:['#2D1B24','#C4617F','#FFF8FA'],
+    vars:{'--bg':'#FBF5F7','--bg2':'#F3E8ED','--bg3':'#FBF5F7','--white':'#FFF8FA',
+      '--acc':'#9B4F6A','--acc-m':'#C4617F','--acc-l':'#F8DDED','--acc-d':'#6B2845',
+      '--ivory':'#F9EFF3','--ivory-d':'#9A7080','--ivory-l':'#FEF5F8',
+      '--carbon':'#2D1B24','--border':'#E8CED8','--border2':'#D4A8BC',
+      '--text':'#1F0E16','--text2':'#5A3347','--text3':'#A07888'}
+  },
+  {
+    id:'botanical',nombre:'Botanical',etiq:'Femenina',tipo:'femenina',
+    preview:['#1F2A22','#6B9470','#FDFCF8'],
+    vars:{'--bg':'#F7F4EE','--bg2':'#EDE7DC','--bg3':'#F7F4EE','--white':'#FDFCF8',
+      '--acc':'#5A7A5E','--acc-m':'#6B9470','--acc-l':'#D8EDDA','--acc-d':'#2E4C32',
+      '--ivory':'#F5F0E6','--ivory-d':'#8A8270','--ivory-l':'#FAF7F0',
+      '--carbon':'#1F2A22','--border':'#CCBFA8','--border2':'#B8A890',
+      '--text':'#141E15','--text2':'#3E5240','--text3':'#7A9078'}
+  },
+  {
+    id:'navy',nombre:'Navy Steel',etiq:'Masculina',tipo:'masculina',
+    preview:['#0D1B2A','#2952A3','#FAFBFD'],
+    vars:{'--bg':'#F2F4F7','--bg2':'#E4E9F0','--bg3':'#F2F4F7','--white':'#FAFBFD',
+      '--acc':'#1B3A6B','--acc-m':'#2952A3','--acc-l':'#D0DCEF','--acc-d':'#0D1E40',
+      '--ivory':'#EEF2F8','--ivory-d':'#7080A0','--ivory-l':'#F5F7FB',
+      '--carbon':'#0D1B2A','--border':'#C0CCE0','--border2':'#9AAACA',
+      '--text':'#0A1220','--text2':'#2A3D5A','--text3':'#6878A0'}
+  },
+  {
+    id:'cognac',nombre:'Slate & Cognac',etiq:'Masculina',tipo:'masculina',
+    preview:['#1A1814','#A04E3C','#FDFAF7'],
+    vars:{'--bg':'#F5F1ED','--bg2':'#EDE6DE','--bg3':'#F5F1ED','--white':'#FDFAF7',
+      '--acc':'#7A3B2E','--acc-m':'#A04E3C','--acc-l':'#F0DDD8','--acc-d':'#4A2018',
+      '--ivory':'#F4EDE6','--ivory-d':'#8A7268','--ivory-l':'#FAF6F2',
+      '--carbon':'#1A1814','--border':'#CCC0B0','--border2':'#B0988A',
+      '--text':'#1A0E0A','--text2':'#4A3028','--text3':'#8A6858'}
+  },
+  {
+    id:'midnight',nombre:'Midnight',etiq:'Oscuro',tipo:'oscuro',
+    preview:['#0F0F1A','#9D5CF0','#252236'],
+    vars:{'--bg':'#1E1B2E','--bg2':'#16132A','--bg3':'#1E1B2E','--white':'#252236',
+      '--acc':'#7C3AED','--acc-m':'#9D5CF0','--acc-l':'#3D2870','--acc-d':'#5A20C8',
+      '--ivory':'#E8E4F4','--ivory-d':'#9080C4','--ivory-l':'#F0EDF8',
+      '--carbon':'#0F0F1A','--border':'#3A3460','--border2':'#504A80',
+      '--text':'#E8E4F8','--text2':'#B8B0D8','--text3':'#8078A8'}
+  },
+  {
+    id:'sand',nombre:'Sand & Terra',etiq:'Unisex',tipo:'unisex',
+    preview:['#2A1F14','#D97840','#FDF9F4'],
+    vars:{'--bg':'#F5EFE6','--bg2':'#EDE3D4','--bg3':'#F5EFE6','--white':'#FDF9F4',
+      '--acc':'#C4622D','--acc-m':'#D97840','--acc-l':'#FADFCC','--acc-d':'#8B3A18',
+      '--ivory':'#F4EAD8','--ivory-d':'#8A7060','--ivory-l':'#FAF4EC',
+      '--carbon':'#2A1F14','--border':'#D0C0A8','--border2':'#B8A088',
+      '--text':'#1E130A','--text2':'#4A3020','--text3':'#907060'}
+  },
+  {
+    id:'ocean',nombre:'Ocean Depth',etiq:'Unisex',tipo:'unisex',
+    preview:['#0C2D3A','#0891B2','#F8FCFF'],
+    vars:{'--bg':'#F0F9FF','--bg2':'#E0F2FE','--bg3':'#F0F9FF','--white':'#F8FCFF',
+      '--acc':'#0E7490','--acc-m':'#0891B2','--acc-l':'#CAEDF5','--acc-d':'#083D4E',
+      '--ivory':'#E8F5FA','--ivory-d':'#5090A8','--ivory-l':'#F2FAFD',
+      '--carbon':'#0C2D3A','--border':'#A8D8E8','--border2':'#80B8D0',
+      '--text':'#0A1E28','--text2':'#1E4A5A','--text3':'#508090'}
+  },
+  {
+    id:'obsidian',nombre:'Obsidian Gold',etiq:'Premium',tipo:'premium',
+    preview:['#0A0A0A','#B8960C','#FDFCF8'],
+    vars:{'--bg':'#F2F0EC','--bg2':'#E8E4DC','--bg3':'#F2F0EC','--white':'#FDFCF8',
+      '--acc':'#8B6914','--acc-m':'#B8960C','--acc-l':'#F4E8C0','--acc-d':'#5A4208',
+      '--ivory':'#F4EED8','--ivory-d':'#8A7840','--ivory-l':'#FAF6EA',
+      '--carbon':'#0A0A0A','--border':'#C8C0A0','--border2':'#A89870',
+      '--text':'#0E0C08','--text2':'#3A3018','--text3':'#786840'}
+  },
+  {
+    id:'fintech',nombre:'Fintech Blue',etiq:'Fintech',tipo:'fintech',
+    preview:['#0A0F2A','#2563EB','#F8FAFF'],
+    vars:{'--bg':'#F0F4FF','--bg2':'#E5EDFF','--bg3':'#F0F4FF','--white':'#F8FAFF',
+      '--acc':'#1D4ED8','--acc-m':'#2563EB','--acc-l':'#DBEAFE','--acc-d':'#1E3A8A',
+      '--ivory':'#EEF2FF','--ivory-d':'#6070C0','--ivory-l':'#F5F8FF',
+      '--carbon':'#0A0F2A','--border':'#BFCFEF','--border2':'#9AB0E0',
+      '--text':'#0A0F24','--text2':'#1E2A5A','--text3':'#5068A0'}
+  }
+];
+
+let paletaActual='aston';
+
+function applyPaleta(id,guardar=true){
+  const p=PALETAS.find(x=>x.id===id);
+  if(!p)return;
+  paletaActual=id;
+  const root=document.documentElement;
+  Object.entries(p.vars).forEach(([k,v])=>root.style.setProperty(k,v));
+  if(guardar) localStorage.setItem('hc_paleta',id);
+  // Re-render the grid if open
+  const grid=document.getElementById('paleta-grid');
+  if(grid&&grid.innerHTML) renderPaletaGrid();
+  toast('Paleta "'+p.nombre+'" aplicada');
+}
+
+function renderPaletaGrid(){
+  const grid=document.getElementById('paleta-grid');
+  if(!grid)return;
+  grid.innerHTML=PALETAS.map(p=>{
+    const activa=p.id===paletaActual;
+    return`<div class="paleta-card${activa?' paleta-activa':''}" onclick="applyPaleta('${p.id}')">
+      <div class="paleta-preview">
+        <div class="paleta-preview-seg" style="background:${p.preview[0]};flex:2"></div>
+        <div class="paleta-preview-seg" style="background:${p.preview[1]};flex:3"></div>
+        <div class="paleta-preview-seg" style="background:${p.preview[2]};flex:4"></div>
+      </div>
+      <div class="paleta-info">
+        <div class="paleta-nombre">${p.nombre}</div>
+        <span class="paleta-etiq pet-${p.tipo}">${p.etiq}</span>
+      </div>
+      ${activa?'<div class="paleta-check">✓</div>':''}
+    </div>`;
+  }).join('');
+}
+
+function initPaleta(){
+  const saved=localStorage.getItem('hc_paleta');
+  if(saved&&PALETAS.find(p=>p.id===saved)) applyPaleta(saved,false);
+}
 
 // ======= UTILS =======
 const fa=n=>'$'+Math.round(n).toLocaleString('es-AR');
@@ -2482,6 +2650,11 @@ function delCat(n){delete CAT[n];renderCatsList();fillCatSel('g-cat')}
 
 // ======= MODALS =======
 function openModal(id){
+  if(id==='modal-paleta'){
+    document.getElementById(id).classList.add('open');
+    renderPaletaGrid();
+    return;
+  }
   if(id==='modal-cfg'){
     document.getElementById('s-u1').value=cfg.u1;
     document.getElementById('s-u2').value=cfg.u2;
@@ -2516,6 +2689,7 @@ document.getElementById('ajuste-mes').value=_mesHoy;
 document.getElementById('imp-mes').value=_mesHoy;
 document.getElementById('g-imputacion').value=_mesHoy;
 document.getElementById('in-imputacion').value=_mesHoy;
+initPaleta();
 fillCatSel('g-cat');
 applyNames();
 updateIAConfigBtn();
