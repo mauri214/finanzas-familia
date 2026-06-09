@@ -360,14 +360,14 @@ input:checked+.proy-slider:before{transform:translateX(16px)}
   <div class="ajuste-box">
     <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Calculá cuánto se debe uno al otro por los gastos familiares del mes, descontando lo pagado de fondos conjuntos.</div>
     <div class="fr">
-      <div class="fg"><div class="fl">Mes a ajustar</div><input type="month" id="ajuste-mes" value="2026-06" onchange="renderAjuste()"/></div>
+      <div class="fg"><div class="fl">Mes a ajustar</div><input type="month" id="ajuste-mes" onchange="renderAjuste()"/></div>
       <div class="fg" style="justify-content:flex-end"><div class="fl">&nbsp;</div><button class="bp" onclick="renderAjuste()"><i class="ti ti-calculator"></i>Calcular ajuste</button></div>
     </div>
     <div class="ajuste-result" id="ajuste-result"></div>
   </div>
 </div>
 
-<!-- IMPORTAR v5.1 — con IA y soporte PDF -->
+<!-- IMPORTAR v5.2 — con IA y soporte PDF -->
 <div class="sec" id="sec-importar">
   <div class="shr">
     <div class="st">Importar extracto bancario</div>
@@ -380,7 +380,7 @@ input:checked+.proy-slider:before{transform:translateX(16px)}
     <div class="fr t3">
       <div class="fg"><div class="fl">¿De quién?</div><select id="imp-owner"><option value="fam">Cuenta familiar</option><option value="u1">VH</option><option value="u2">MG</option></select></div>
       <div class="fg"><div class="fl">Medio de pago</div><select id="imp-medio"><option>Tarjeta crédito</option><option>Tarjeta débito</option><option>Transferencia</option><option>Extracto banco</option></select></div>
-      <div class="fg"><div class="fl">Mes que corresponde</div><input id="imp-mes" type="month" value="2026-06"/></div>
+      <div class="fg"><div class="fl">Mes que corresponde</div><input id="imp-mes" type="month"/></div>
     </div>
   </div>
 
@@ -1076,7 +1076,7 @@ function renderDashMes(){
     </div>
     <div class="bt" style="height:10px;margin-bottom:14px"><div class="bf" style="width:${pctPag}%;background:var(--acc-m)"></div></div>
 
-    <div class="sep">Proyección financiera <span style="font-size:10px;font-weight:500;color:var(--text3);text-transform:none;letter-spacing:0">hasta diciembre ${curY}</span></div>
+    <div class="sep">Proyección financiera <span style="font-size:10px;font-weight:500;color:var(--text3);text-transform:none;letter-spacing:0">hasta diciembre ${new Date().getFullYear()}</span></div>
     <div id="proy-section"></div>`;
   renderProyeccion();
 }
@@ -1164,17 +1164,22 @@ function getRecurrentes(){
   // Manuales que ya estaban como candidatos (en candidatos list)
   saved.filter(r=>r.manual&&candidatos.find(c=>c.desc.toLowerCase().trim()===r.desc.toLowerCase().trim()))
     .forEach(r=>{if(!merged.find(m=>m.desc.toLowerCase().trim()===r.desc.toLowerCase().trim()))merged.push(r)});
-  return merged;
+  // Deduplicar por clave normalizada (edge cases de capitalización / espacios)
+  const seen=new Set();
+  return merged.filter(r=>{const k=r.desc.toLowerCase().trim();if(seen.has(k))return false;seen.add(k);return true;});
 }
 
 function calcProyeccion(recurrentes){
+  const hoy=new Date();
+  const mesHoy=hoy.getMonth();
+  const anioHoy=hoy.getFullYear();
   const ingRec=ingresos.filter(i=>i.rec==1||i.rec==='1').reduce((a,i)=>a+i.monto,0);
   const gastRec=recurrentes.filter(r=>r.activo).reduce((a,r)=>a+r.monto,0);
   const cDeuM=deudas.reduce((a,d)=>a+cuotaMensual(d),0);
   const meses=[];
   let acum=0;
-  for(let m=curM;m<=11;m++){
-    const cTarj=calcCuotasPend(m,curY);
+  for(let m=mesHoy;m<=11;m++){
+    const cTarj=calcCuotasPend(m,anioHoy);
     const disponible=ingRec-gastRec-cTarj-cDeuM;
     acum+=disponible;
     meses.push({m,ingresos:ingRec,gastosRec:gastRec,cuotas:cTarj,deudas:cDeuM,disponible,acumulado:acum});
@@ -1444,7 +1449,7 @@ function renderDashAnual(){
     <div class="g3">
       <div class="met blue"><div class="ml">Total invertido</div><div class="mv">${fa(inversiones.reduce((a,i)=>a+toARS(i),0))}</div></div>
       <div class="met green"><div class="ml">Valor actual</div><div class="mv">${fa(inversiones.reduce((a,i)=>a+toARSa(i),0))}</div></div>
-      <div class="met green"><div class="ml">PNL</div><div class="mv">${fa(inversiones.reduce((a,i)=>a+toARSa(i)-toARS(i),0))}</div></div>
+      ${(()=>{const pnlA=inversiones.reduce((a,i)=>a+toARSa(i)-toARS(i),0);return`<div class="met ${pnlA>=0?'green':'red'}"><div class="ml">PNL</div><div class="mv">${pnlA>=0?'+':''}${fa(pnlA)}</div></div>`})()}
     </div>`;
 }
 
@@ -1601,14 +1606,13 @@ function renderAjuste(){
     </div>`;
 }
 
-// ======= IMPORTAR v5.1 — con IA y soporte PDF =======
+// ======= IMPORTAR v5.2 — con IA y soporte PDF =======
 
 // Inicializar worker de pdf.js
 if(typeof pdfjsLib!=='undefined') pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
 // ── CLAVE API CLAUDE ──────────────────────────────────────────────────────────
-const CLAUDE_KEY_LS='householdcap_claude_api_key';
-const getClaudeKey=()=>localStorage.getItem(CLAUDE_KEY_LS)||'';
+// CLAUDE_KEY_LS / getClaudeKey eliminados (código muerto — clave vive en Apps Script, no en localStorage)
 
 function openClaudeKeyModal(){
   document.getElementById('claude-key-status').textContent='';
@@ -1845,7 +1849,7 @@ async function processImportTexto(){
 function processImportBasico(text){
   const owner=document.getElementById('imp-owner').value;
   const medio=document.getElementById('imp-medio').value;
-  const mesVal=document.getElementById('imp-mes').value;
+  const mesVal=document.getElementById('imp-mes').value||`${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}`;
   const [mesY,mesM]=mesVal.split('-').map(Number);
   const lines=text.split('\n').filter(l=>l.trim().length>3);
   const parsed=[];
@@ -1925,7 +1929,7 @@ function renderImpPreview(){
     <span class="tag tg-red">💸 ${nGastos} gastos</span>
     <span class="tag tg-green">💰 ${nIng} ingresos</span>
     <span class="tag tg-gray">${sel} seleccionados</span>
-    ${getClaudeKey()?'<span class="ia-badge"><i class="ti ti-robot"></i> Interpretado con IA</span>':''}`;
+    ${localStorage.getItem('hc_ia_ok')==='1'&&DB.enabled()?'<span class="ia-badge"><i class="ti ti-robot"></i> Interpretado con IA</span>':''}`;
 
   const tiposIngreso=['Sueldo neto','Premio / bono','Aguinaldo','Negocio / freelance','Alquiler cobrado','Dividendos','Devolución','Otro'];
 
@@ -1956,7 +1960,7 @@ function renderImpPreview(){
     const cuotasTotal=Math.max(p.cuotas||1, cuotaActual);
     const colCuotas=esGasto
       ?`<span style="font-size:12px;white-space:nowrap;display:inline-flex;align-items:center;gap:2px">
-          <input type="number" min="1" value="${cuotaActual}" onchange="impPending[${i}].cuotaActual=+this.value" style="width:34px;font-size:12px;padding:3px;text-align:center;border:1px solid var(--border);border-radius:6px">
+          <input type="number" min="1" value="${cuotaActual}" onchange="impPending[${i}].cuotaActual=+this.value;if(impPending[${i}].cuotaActual>impPending[${i}].cuotas)impPending[${i}].cuotas=impPending[${i}].cuotaActual;renderImpPreview()" style="width:34px;font-size:12px;padding:3px;text-align:center;border:1px solid var(--border);border-radius:6px">
           <span style="color:var(--text3)">/</span>
           <input type="number" min="1" value="${cuotasTotal}" onchange="impPending[${i}].cuotas=Math.max(+this.value,impPending[${i}].cuotaActual||1)" style="width:34px;font-size:12px;padding:3px;text-align:center;border:1px solid var(--border);border-radius:6px">
          </span>`
@@ -2335,7 +2339,7 @@ async function confirmImport(){
   const nuevosIngresos=selIngresos.map(p=>({
     id:nid++,fecha:p.fecha,desc:p.desc,
     tipo:p.cat,   // cat aquí contiene el tipo de ingreso (Sueldo neto, Bono, etc.)
-    quien:p.owner,monto:p.monto,rec:0
+    quien:p.quien||'comp',monto:p.monto,rec:0
   }));
   nuevosIngresos.forEach(r=>ingresos.push(r));
 
@@ -2439,8 +2443,12 @@ function toast(msg,err){
 }
 
 // ======= INIT =======
+const _hoy=new Date();
+const _mesHoy=`${_hoy.getFullYear()}-${String(_hoy.getMonth()+1).padStart(2,'0')}`;
 document.getElementById('g-fecha').value=td();
 document.getElementById('in-fecha').value=td();
+document.getElementById('ajuste-mes').value=_mesHoy;
+document.getElementById('imp-mes').value=_mesHoy;
 fillCatSel('g-cat');
 applyNames();
 updateIAConfigBtn();
