@@ -9,8 +9,8 @@ Herramienta de finanzas personales para una pareja (2 usuarios), construida como
 - **Versión activa:** v5.3 (`finanzas_v5.3.html`)
 - **Stack:** HTML + CSS + JavaScript vanilla (sin frameworks), un solo archivo
 - **Persistencia:** Google Sheets via Apps Script (con token de seguridad). Fallback a memoria si no hay URL configurada.
-- **Repo:** github.com/mauri214/finanzas-familia
-- **URL pública:** https://mauri214.github.io/finanzas-familia/
+- **Repo:** github.com/mauri214/HouseholdCap
+- **URL pública:** https://mauri214.github.io/HouseholdCap/
 - **Diseño:** Aston Martin — British Racing Green #003A2F, Ivory #F5F0E8, Carbon Black #0A0A0A
 - **App name:** HouseholdCap
 
@@ -269,7 +269,7 @@ La URL del Sheet en el código se configura por variable, no hardcodeada.
 
 | Componente | Detalle |
 |------------|---------|
-| Repo GitHub | github.com/mauri214/finanzas-familia |
+| Repo GitHub | github.com/mauri214/HouseholdCap |
 | Google Sheet TEST | ID: `1IxTLG38x-Zr-JhTI0AU-VNCINtRQjJ6Ne6ErA0Yyrzs` |
 | Google Sheet PROD | pendiente de crear |
 | Apps Script | deployado como Web App (acceso: cualquier usuario + token) |
@@ -292,7 +292,7 @@ La URL del Sheet en el código se configura por variable, no hardcodeada.
 ### Completados
 - [x] Conectar Google Sheets como base de datos ✓
 - [x] Configurar GitHub para versionado ✓
-- [x] URL fija para acceso desde celular ✓ → https://mauri214.github.io/finanzas-familia/
+- [x] URL fija para acceso desde celular ✓ → https://mauri214.github.io/HouseholdCap/
 - [x] Rediseño premium Aston Martin ✓
 - [x] Health Score widget ✓
 - [x] Módulo Importar con IA (Claude API via Apps Script proxy) ✓
