@@ -1749,13 +1749,21 @@ async function parseWithClaudeAPI(textoExtraido){
   const catIngreso='Sueldo neto,Premio / bono,Aguinaldo,Negocio / freelance,Alquiler cobrado,Dividendos,Devolución,Otro';
   const patrones=buildPatrones();
 
-  // Fetch directo (sin DB.call) para ver el error real sin que se trague
+  // Fetch con timeout de 30s — si Apps Script / Claude no responden, aborta limpiamente
   const body={action:'callClaude',token:DB.token,texto:textoExtraido,catGasto,catIngreso,patrones};
   let json;
   try{
-    const res=await fetch(DB.url,{method:'POST',body:JSON.stringify(body)});
+    const controller=new AbortController();
+    const timeoutId=setTimeout(()=>controller.abort(),30000);
+    let res;
+    try{
+      res=await fetch(DB.url,{method:'POST',body:JSON.stringify(body),signal:controller.signal});
+    }finally{
+      clearTimeout(timeoutId);
+    }
     json=await res.json();
   }catch(e){
+    if(e.name==='AbortError') throw new Error('La IA tardó demasiado (>30s). Intentá de nuevo o usá el parser básico.');
     throw new Error('Sin conexión con Apps Script: '+e.message);
   }
 
@@ -2317,9 +2325,43 @@ async function delDeuda(idx){
   deudas.splice(idx,1);renderDeudas();
   await DB.remove('Deudas',id);
 }
+function detectarDuplicados(candidatos){
+  // Devuelve los candidatos que ya existen en gastos[] o ingresos[] con misma desc+fecha+monto
+  return candidatos.filter(p=>{
+    const pool=p.tipo==='gasto'?gastos:ingresos;
+    return pool.some(r=>
+      String(r.desc).toLowerCase().trim()===String(p.desc).toLowerCase().trim()&&
+      r.fecha===p.fecha&&
+      Math.abs((r.monto||0)-(p.monto||0))<1
+    );
+  });
+}
+
 async function confirmImport(){
   const sel=impPending.filter(p=>p.sel);
   if(!sel.length){toast('No hay ítems seleccionados',true);return;}
+
+  // M-001 — Detectar posibles duplicados antes de guardar
+  const duplicados=detectarDuplicados(sel);
+  if(duplicados.length>0){
+    const lista=duplicados.slice(0,5).map(d=>`• ${d.desc} (${fd(d.fecha)}, ${fa(d.monto)})`).join('\n');
+    const extra=duplicados.length>5?`\n… y ${duplicados.length-5} más`:'';
+    const continuar=confirm(
+      `⚠️ ${duplicados.length} transacción${duplicados.length>1?'es parecen':'parece'} ya estar cargada${duplicados.length>1?'s':''}:\n\n${lista}${extra}\n\n¿Querés guardarlas igual?`
+    );
+    if(!continuar){
+      // Desmarcar solo los duplicados, dejar el resto seleccionado
+      duplicados.forEach(d=>{
+        const idx=impPending.findIndex(p=>
+          p.desc===d.desc&&p.fecha===d.fecha&&Math.abs((p.monto||0)-(d.monto||0))<1
+        );
+        if(idx>=0) impPending[idx].sel=false;
+      });
+      renderImpPreview();
+      toast(`${duplicados.length} posible${duplicados.length>1?'s':''} duplicado${duplicados.length>1?'s':''} desmarcado${duplicados.length>1?'s':''}`);
+      return;
+    }
+  }
 
   // Separar por tipo
   const selGastos=sel.filter(p=>p.tipo==='gasto');
