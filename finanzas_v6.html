@@ -345,6 +345,16 @@ input:checked+.proy-slider:before{transform:translateX(16px)}
 .chart-legend span{display:flex;align-items:center;gap:5px}
 .legend-dot{width:10px;height:10px;border-radius:2px;display:inline-block;flex-shrink:0}
 
+/* ===== v6.1: FILTRO DE FECHAS (ingresos & gastos) ===== */
+.filtro-fecha-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:var(--bg2);border:1.5px solid var(--border);border-radius:var(--r);padding:8px 12px;margin-bottom:12px}
+.filtro-fecha-bar select,.filtro-fecha-bar input[type=date]{font-size:12px;padding:4px 8px;border:1.5px solid var(--border);border-radius:6px;background:var(--white);color:var(--text);font-family:var(--font)}
+.filtro-fecha-bar .ffb-custom{display:flex;gap:6px;align-items:center}
+.filtro-fecha-bar .ffb-label{font-size:11px;font-weight:700;color:var(--text2);white-space:nowrap}
+.filtro-fecha-bar .ffb-clear{font-size:11px;color:var(--acc);background:none;border:none;cursor:pointer;padding:0 4px;font-weight:700;font-family:var(--font)}
+.filtro-fecha-bar .ffb-clear:hover{text-decoration:underline}
+.filtro-cnt{font-size:11px;color:var(--text3);margin-left:auto;white-space:nowrap}
+.filtro-activo .filtro-cnt{color:var(--acc);font-weight:700}
+
 /* ===== v6: SIMULADOR ===== */
 .sim-card{background:var(--white);border:2px solid var(--border);border-radius:var(--rl);padding:20px;margin-bottom:14px;box-shadow:var(--sh)}
 .sim-result{background:linear-gradient(135deg,var(--acc-d),var(--acc));border-radius:var(--rl);padding:18px;color:var(--ivory);margin-top:14px;border:2px solid var(--acc-d)}
@@ -423,13 +433,54 @@ input:checked+.proy-slider:before{transform:translateX(16px)}
     <div id="dist-cfg"></div>
   </div>
   <div class="g2" id="ing-metrics"></div>
-  <div class="card"><div class="ct">Detalle <span id="ing-mes-lbl"></span></div><div id="ing-table"></div></div>
+  <div class="card">
+    <div class="ct">Detalle <span id="ing-mes-lbl"></span></div>
+    <div class="filtro-fecha-bar" id="ing-filtro-bar">
+      <span class="ffb-label">Filtrar:</span>
+      <select id="ing-flt-mes" onchange="onIngFltMes()">
+        <option value="todos">Todos</option>
+        <option value="0">Enero</option><option value="1">Febrero</option><option value="2">Marzo</option>
+        <option value="3">Abril</option><option value="4">Mayo</option><option value="5">Junio</option>
+        <option value="6">Julio</option><option value="7">Agosto</option><option value="8">Septiembre</option>
+        <option value="9">Octubre</option><option value="10">Noviembre</option><option value="11">Diciembre</option>
+        <option value="custom">Personalizado…</option>
+      </select>
+      <div class="ffb-custom" id="ing-flt-custom" style="display:none">
+        <span class="ffb-label">Desde</span>
+        <input type="date" id="ing-flt-desde" onchange="renderIngresos()"/>
+        <span class="ffb-label">Hasta</span>
+        <input type="date" id="ing-flt-hasta" onchange="renderIngresos()"/>
+      </div>
+      <button class="ffb-clear" id="ing-flt-clear" onclick="limpiarFiltroIng()" style="display:none">✕ Limpiar</button>
+      <span class="filtro-cnt" id="ing-flt-cnt"></span>
+    </div>
+    <div id="ing-table"></div>
+  </div>
   <div class="card"><div class="ct">Distribución calculada</div><div id="dist-result"></div></div>
 </div>
 
 <!-- GASTOS -->
 <div class="sec" id="sec-gastos">
   <div class="shr"><div class="st">Historial de gastos</div><button class="bp" onclick="showSec('cargar')"><i class="ti ti-plus"></i>Nuevo</button></div>
+  <div class="filtro-fecha-bar" id="gast-filtro-bar">
+    <span class="ffb-label">Filtrar por fecha:</span>
+    <select id="gast-flt-mes" onchange="onGastFltMes()">
+      <option value="todos">Todos</option>
+      <option value="0">Enero</option><option value="1">Febrero</option><option value="2">Marzo</option>
+      <option value="3">Abril</option><option value="4">Mayo</option><option value="5">Junio</option>
+      <option value="6">Julio</option><option value="7">Agosto</option><option value="8">Septiembre</option>
+      <option value="9">Octubre</option><option value="10">Noviembre</option><option value="11">Diciembre</option>
+      <option value="custom">Personalizado…</option>
+    </select>
+    <div class="ffb-custom" id="gast-flt-custom" style="display:none">
+      <span class="ffb-label">Desde</span>
+      <input type="date" id="gast-flt-desde" onchange="renderGastos()"/>
+      <span class="ffb-label">Hasta</span>
+      <input type="date" id="gast-flt-hasta" onchange="renderGastos()"/>
+    </div>
+    <button class="ffb-clear" id="gast-flt-clear" onclick="limpiarFiltroGast()" style="display:none">✕ Limpiar</button>
+    <span class="filtro-cnt" id="gast-flt-cnt"></span>
+  </div>
   <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;align-items:center">
     <div class="tabs" style="margin:0">
       <button class="tab active" onclick="fltG('todos',this)">Todos</button>
@@ -969,6 +1020,9 @@ function coerce_deuda(r) {
 // ======= STATE =======
 const MONTHS=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 let curM=5,curY=2026,curAnioY=2026,curCur='ARS',gFilter='todos',dFilter='todos',distMode='gastos_primero',dashView='mes';
+// Filtros de fecha para módulos ingresos y gastos (no persisten)
+let ingFiltro={modo:'todos',desde:'',hasta:''}; // modo: 'todos'|'mes'|'custom'
+let gastFiltro={modo:'todos',desde:'',hasta:''};
 let nid=100;
 
 let cfg={u1:'VH',u2:'MG',ing:3000000,tc:1200,app:'HouseholdCap',
@@ -2167,46 +2221,190 @@ function renderDistResult(){
   document.getElementById('dist-result').innerHTML=rows.map(r=>`<div class="split-row" style="${r.bg?'background:'+r.bg+';':''}">`+
     `<div class="split-lbl">${r.lbl}</div><div class="split-v ${r.color}">${fa(Math.abs(r.v))}${r.v<0?' (−)':''}</div></div>`).join('');
 }
+// ======= FILTRO FECHA — helpers =======
+function aplicarFiltroDates(arr,filtro){
+  if(filtro.modo==='todos') return arr;
+  if(filtro.modo==='mes'){
+    return arr.filter(r=>{
+      const d=new Date(r.fecha+'T00:00:00');
+      return d.getMonth()===filtro.mesNum && d.getFullYear()===new Date().getFullYear();
+    });
+  }
+  if(filtro.modo==='custom'){
+    const d0=filtro.desde?new Date(filtro.desde+'T00:00:00'):null;
+    const d1=filtro.hasta?new Date(filtro.hasta+'T23:59:59'):null;
+    if(d0&&d1&&d1<d0) return arr; // rango inválido: no filtrar
+    return arr.filter(r=>{
+      const d=new Date(r.fecha+'T00:00:00');
+      if(d0&&d<d0) return false;
+      if(d1&&d>d1) return false;
+      return true;
+    });
+  }
+  return arr;
+}
+function promDiario(arr,filtro){
+  if(!arr.length) return 0;
+  let dias=1;
+  if(filtro.modo==='mes'){
+    dias=new Date(new Date().getFullYear(),filtro.mesNum+1,0).getDate();
+  } else if(filtro.modo==='custom'&&filtro.desde&&filtro.hasta){
+    const d0=new Date(filtro.desde+'T00:00:00'),d1=new Date(filtro.hasta+'T00:00:00');
+    dias=Math.max(1,Math.round((d1-d0)/(1000*60*60*24))+1);
+  } else {
+    const fechas=arr.map(r=>r.fecha).sort();
+    if(fechas.length>1){
+      const d0=new Date(fechas[0]+'T00:00:00'),d1=new Date(fechas[fechas.length-1]+'T00:00:00');
+      dias=Math.max(1,Math.round((d1-d0)/(1000*60*60*24))+1);
+    }
+  }
+  return arr.reduce((a,r)=>a+r.monto,0)/dias;
+}
+function updateFiltroUI(prefijo,filtro,total,filtrado){
+  const activo=filtro.modo!=='todos';
+  const bar=document.getElementById(prefijo+'-filtro-bar');
+  if(bar) bar.classList.toggle('filtro-activo',activo);
+  const cnt=document.getElementById(prefijo+'-flt-cnt');
+  if(cnt) cnt.textContent=activo?`Mostrando ${filtrado} de ${total}`:'';
+  const clr=document.getElementById(prefijo+'-flt-clear');
+  if(clr) clr.style.display=activo?'':'none';
+}
+
+// ---- Ingresos ----
+function onIngFltMes(){
+  const v=document.getElementById('ing-flt-mes').value;
+  const cust=document.getElementById('ing-flt-custom');
+  if(v==='custom'){
+    ingFiltro.modo='custom';
+    cust.style.display='flex';
+  } else if(v==='todos'){
+    ingFiltro.modo='todos';
+    cust.style.display='none';
+  } else {
+    ingFiltro.modo='mes';ingFiltro.mesNum=parseInt(v);
+    cust.style.display='none';
+  }
+  renderIngresos();
+}
+function limpiarFiltroIng(){
+  ingFiltro={modo:'todos',desde:'',hasta:''};
+  document.getElementById('ing-flt-mes').value='todos';
+  document.getElementById('ing-flt-custom').style.display='none';
+  document.getElementById('ing-flt-desde').value='';
+  document.getElementById('ing-flt-hasta').value='';
+  renderIngresos();
+}
+// ---- Gastos ----
+function onGastFltMes(){
+  const v=document.getElementById('gast-flt-mes').value;
+  const cust=document.getElementById('gast-flt-custom');
+  if(v==='custom'){
+    gastFiltro.modo='custom';
+    cust.style.display='flex';
+  } else if(v==='todos'){
+    gastFiltro.modo='todos';
+    cust.style.display='none';
+  } else {
+    gastFiltro.modo='mes';gastFiltro.mesNum=parseInt(v);
+    cust.style.display='none';
+  }
+  renderGastos();
+}
+function limpiarFiltroGast(){
+  gastFiltro={modo:'todos',desde:'',hasta:''};
+  document.getElementById('gast-flt-mes').value='todos';
+  document.getElementById('gast-flt-custom').style.display='none';
+  document.getElementById('gast-flt-desde').value='';
+  document.getElementById('gast-flt-hasta').value='';
+  renderGastos();
+}
+
 function renderIngresos(){
   document.getElementById('ing-mes-lbl').textContent=MONTHS[curM]+' '+curY;
   renderDistCfg();
-  const ing=getIng();
+  // Sincronizar filtro custom desde inputs
+  if(ingFiltro.modo==='custom'){
+    ingFiltro.desde=document.getElementById('ing-flt-desde').value;
+    ingFiltro.hasta=document.getElementById('ing-flt-hasta').value;
+  }
+  const ingAll=getIng();
+  const ing=aplicarFiltroDates(ingAll,ingFiltro);
+  updateFiltroUI('ing',ingFiltro,ingAll.length,ing.length);
+
   const t=ing.reduce((a,i)=>a+i.monto,0);
   const u1=ing.filter(i=>i.quien==='u1').reduce((a,i)=>a+i.monto,0);
   const u2=ing.filter(i=>i.quien==='u2').reduce((a,i)=>a+i.monto,0);
   const fam=ing.filter(i=>i.quien==='fam').reduce((a,i)=>a+i.monto,0);
+  const pd=promDiario(ing,ingFiltro);
   const tc={'Sueldo neto':'#1D9E75','Premio / bono':'#EF9F27','Aguinaldo':'#378ADD','Negocio / freelance':'#7F77DD','Alquiler cobrado':'#D85A30','Dividendos':'#E24B4A','Otro':'#888780'};
+  // Totales por tipo
+  const porTipo={};ing.forEach(i=>{porTipo[i.tipo]=(porTipo[i.tipo]||0)+i.monto});
+  const tipoRows=Object.entries(porTipo).sort((a,b)=>b[1]-a[1]).map(([tp,v])=>
+    `<div class="met" style="border-left:3px solid ${tc[tp]||'#888'}"><div class="ml">${tp}</div><div class="mv" style="color:${tc[tp]||'#888'}">${fa(v)}</div></div>`
+  ).join('');
   document.getElementById('ing-metrics').innerHTML=`
     <div class="met green"><div class="ml">Total</div><div class="mv">${fa(t)}</div></div>
     <div class="met"><div class="ml">${cfg.u1}</div><div class="mv" style="color:var(--acc)">${fa(u1)}</div></div>
     <div class="met"><div class="ml">${cfg.u2}</div><div class="mv" style="color:var(--purp)">${fa(u2)}</div></div>
-    <div class="met gray"><div class="ml">Conjunto</div><div class="mv">${fa(fam)}</div></div>`;
-  document.getElementById('ing-table').innerHTML=`<table>
+    <div class="met gray"><div class="ml">Conjunto</div><div class="mv">${fa(fam)}</div></div>
+    ${ingFiltro.modo!=='todos'?`<div class="met"><div class="ml">Prom. diario</div><div class="mv" style="font-size:13px">${fa(pd)}</div></div>`:''}
+    ${ingFiltro.modo!=='todos'?tipoRows:''}`;
+  const rows=ing.sort((a,b)=>b.fecha.localeCompare(a.fecha));
+  document.getElementById('ing-table').innerHTML=rows.length?`<table>
     <thead><tr><th>Fecha</th><th>Descripción</th><th>Tipo</th><th>Recurrente</th><th class="r">Quién</th><th class="r">Monto</th><th></th></tr></thead>
-    <tbody>${ing.sort((a,b)=>b.fecha.localeCompare(a.fecha)).map(i=>`<tr>
+    <tbody>${rows.map(i=>`<tr>
       <td style="color:var(--text3)">${fd(i.fecha)}</td><td style="font-weight:600">${i.desc}</td>
       <td><span class="pill" style="background:${tc[i.tipo]||'#888'}22;color:${tc[i.tipo]||'#888'}">${i.tipo}</span></td>
       <td>${i.rec?'<span class="tag tg-green">Mensual</span>':'<span class="tag tg-gray">Único</span>'}</td>
       <td class="r"><span class="pill ${oc(i.quien)}">${uN(i.quien)}</span></td>
       <td class="r pos" style="font-weight:700">${fa(i.monto)}</td>
       <td class="r"><button class="del-btn" onclick="delIng(${i.id})"><i class="ti ti-trash"></i></button></td>
-    </tr>`).join('')}</tbody></table>`;
+    </tr>`).join('')}</tbody></table>`
+    :`<div style="text-align:center;color:var(--text3);padding:24px;font-size:13px">Sin ingresos en este período</div>`;
   renderDistResult();
 }
 
 // ======= GASTOS =======
 function renderGastos(){
-  let data=[...gastos];
-  if(gFilter==='u1') data=data.filter(g=>g.quien==='u1');
-  else if(gFilter==='u2') data=data.filter(g=>g.quien==='u2');
-  else if(gFilter==='fam') data=data.filter(g=>g.amb==='fam');
+  // Sincronizar filtro custom desde inputs
+  if(gastFiltro.modo==='custom'){
+    gastFiltro.desde=document.getElementById('gast-flt-desde').value;
+    gastFiltro.hasta=document.getElementById('gast-flt-hasta').value;
+  }
+  let dataAll=[...gastos];
+  if(gFilter==='u1') dataAll=dataAll.filter(g=>g.quien==='u1');
+  else if(gFilter==='u2') dataAll=dataAll.filter(g=>g.quien==='u2');
+  else if(gFilter==='fam') dataAll=dataAll.filter(g=>g.amb==='fam');
   const cf=document.getElementById('flt-cat').value;
   const mf=document.getElementById('flt-medio').value;
-  if(cf) data=data.filter(g=>g.cat===cf);
-  if(mf) data=data.filter(g=>g.medio===mf);
+  if(cf) dataAll=dataAll.filter(g=>g.cat===cf);
+  if(mf) dataAll=dataAll.filter(g=>g.medio===mf);
+  // Aplicar filtro fecha
+  const data=aplicarFiltroDates(dataAll,gastFiltro);
+  updateFiltroUI('gast',gastFiltro,dataAll.length,data.length);
   data.sort((a,b)=>b.fecha.localeCompare(a.fecha));
   const total=data.reduce((a,g)=>a+g.monto,0);
-  document.getElementById('gastos-tbody').innerHTML=data.map(g=>`<tr>
+  const pd=promDiario(data,gastFiltro);
+  // Subtotales por categoría y usuario (solo si hay filtro activo)
+  let extraHTML='';
+  if(gastFiltro.modo!=='todos'){
+    const porCat={};data.forEach(g=>{porCat[g.cat]=(porCat[g.cat]||0)+g.monto});
+    const porUser={[cfg.u1]:0,[cfg.u2]:0,'Familiar':0};
+    data.forEach(g=>{
+      if(g.quien==='u1') porUser[cfg.u1]+=g.monto;
+      else if(g.quien==='u2') porUser[cfg.u2]+=g.monto;
+      else porUser['Familiar']+=g.monto;
+    });
+    const catRows=Object.entries(porCat).sort((a,b)=>b[1]-a[1])
+      .map(([c,v])=>`<span style="font-size:11px"><span class="pill" style="background:${CAT[c]?.color||'#888'}22;color:${CAT[c]?.color||'#888'}">${c}</span> ${fa(v)}</span>`).join(' ');
+    extraHTML=`<div style="display:flex;flex-wrap:wrap;gap:6px;padding:6px 2px 2px;border-top:1px solid var(--border);margin-top:6px">
+      <span style="font-size:11px;color:var(--text2);font-weight:700">Por categoría:</span>${catRows}</div>
+      <div style="display:flex;gap:12px;padding:4px 2px;font-size:11px;color:var(--text2)">
+        <span>Prom. diario: <b>${fa(pd)}</b></span>
+        ${Object.entries(porUser).map(([u,v])=>`<span>${u}: <b>${fa(v)}</b></span>`).join('')}
+      </div>`;
+  }
+  document.getElementById('gastos-tbody').innerHTML=data.length?data.map(g=>`<tr>
     <td style="color:var(--text3);white-space:nowrap">${fd(g.fecha)}${(()=>{if(!g.imputacion)return'';const{y,m}=getMesImp(g);const fd2=new Date(g.fecha);if(fd2.getFullYear()===y&&fd2.getMonth()===m)return'';return`<br><span style="font-size:9px;background:var(--warn-l);color:var(--warn);border-radius:3px;padding:1px 4px;font-weight:700">→${MONTHS[m].slice(0,3)}</span>`;})()}</td>
     <td style="font-weight:600">${g.desc}${g.notas?'<br><span style="font-size:10px;color:var(--text3)">'+g.notas+'</span>':''}</td>
     <td><span class="pill" style="background:${CAT[g.cat]?.color||'#888'}22;color:${CAT[g.cat]?.color||'#888'}">${g.cat}</span></td>
@@ -2218,8 +2416,8 @@ function renderGastos(){
       <button class="edit-btn" onclick="openEditGasto(${g.id})" title="Editar"><i class="ti ti-edit"></i></button>
       <button class="del-btn" onclick="delGasto(${g.id})" title="Eliminar"><i class="ti ti-trash"></i></button>
     </td>
-  </tr>`).join('');
-  document.getElementById('gastos-total').textContent=`Total: ${fa(total)} · ${data.length} transacciones`;
+  </tr>`).join(''):`<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:20px">Sin gastos en este período</td></tr>`;
+  document.getElementById('gastos-total').innerHTML=`Total: <b>${fa(total)}</b> · ${data.length} transacciones${extraHTML}`;
 }
 function fltG(f,btn){gFilter=f;document.querySelectorAll('#sec-gastos .tabs .tab').forEach(t=>t.classList.remove('active'));btn.classList.add('active');renderGastos()}
 function fillCatFilter(){
