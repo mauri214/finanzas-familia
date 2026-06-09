@@ -6,7 +6,8 @@ Herramienta de finanzas personales para una pareja (2 usuarios), construida como
 
 ## Estado actual
 
-- **Versión activa:** v5.3 (`finanzas_v5.3.html`)
+- **Versión activa:** v6.0 (`finanzas_v6.html`)
+- **Versión anterior:** v5.3 (`finanzas_v5.3.html`)
 - **Stack:** HTML + CSS + JavaScript vanilla (sin frameworks), un solo archivo
 - **Persistencia:** Google Sheets via Apps Script (con token de seguridad). Fallback a memoria si no hay URL configurada.
 - **Repo:** github.com/mauri214/HouseholdCap
@@ -14,7 +15,16 @@ Herramienta de finanzas personales para una pareja (2 usuarios), construida como
 - **Diseño:** Aston Martin — British Racing Green #003A2F, Ivory #F5F0E8, Carbon Black #0A0A0A
 - **App name:** HouseholdCap
 
-### Novedades v5.3 (actual)
+### Novedades v6.0 (actual)
+- **Comparativo mes anterior:** flechas ↑/↓ con delta % en métricas de ingresos, gastos y balance
+- **Tipo de cambio automático:** chip TC en topbar, fetch a dolarapi.com, modal con todas las cotizaciones, aplicar con un click
+- **Presupuestos por categoría + semáforo:** límites configurables en "Cargar datos", semáforo 🟢🟡🔴 en barras del dashboard
+- **Notificaciones de metas:** alertas visuales cuando una meta vence en <30 días o presupuesto supera 80%
+- **Búsqueda global Cmd+K:** modal de búsqueda full-text en gastos, ingresos e inversiones con highlight
+- **Gráficos SVG nativos:** línea 12 meses en dashboard, dona distribución inversiones, barras agrupadas anual
+- **Simulador ¿Qué pasa si?:** tab ahorro (interés compuesto + evolución SVG) + tab adelanto de capital (reusa calcAdel)
+
+### Novedades v5.3
 - Campo `imputacion` (YYYY-MM) en Gastos e Ingresos: separa fecha de transacción del mes contable
 - Filtros del Dashboard, ajuste de cuentas y vista anual usan `imputacion` si está presente, sino `fecha`
 - Formulario gastos: selector "Imputar al mes" (default = mes actual)
