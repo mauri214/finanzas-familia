@@ -345,6 +345,35 @@ input:checked+.proy-slider:before{transform:translateX(16px)}
 .chart-legend span{display:flex;align-items:center;gap:5px}
 .legend-dot{width:10px;height:10px;border-radius:2px;display:inline-block;flex-shrink:0}
 
+/* ===== v6.1: PORTFOLIO SNAPSHOTS ===== */
+.snap-bar{display:flex;align-items:center;gap:10px;background:linear-gradient(135deg,var(--acc-d),var(--acc));border-radius:var(--rl);padding:14px 18px;margin-bottom:16px;color:var(--ivory)}
+.snap-bar-info{flex:1}
+.snap-bar-title{font-size:13px;font-weight:800;letter-spacing:.3px}
+.snap-bar-sub{font-size:11px;opacity:.7;margin-top:2px}
+.snap-bar-actions{display:flex;gap:8px;flex-shrink:0}
+.snap-btn{background:rgba(255,255,255,.18);border:1.5px solid rgba(255,255,255,.3);border-radius:8px;color:var(--ivory);font-family:var(--font);font-size:12px;font-weight:700;padding:6px 14px;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:5px}
+.snap-btn:hover{background:rgba(255,255,255,.28)}
+.snap-btn.secondary{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.18)}
+.inv-chart-card{background:var(--white);border:2px solid var(--border);border-radius:var(--rl);padding:18px;margin-bottom:14px;box-shadow:var(--sh)}
+.inv-chart-title{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--text2);margin-bottom:12px;display:flex;justify-content:space-between;align-items:center}
+.inv-chart-title span{font-size:10px;font-weight:600;color:var(--text3);text-transform:none;letter-spacing:0}
+.pnl-pos{fill:#1D9E75}.pnl-neg{fill:#E24B4A}
+.snap-stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:14px}
+.snap-stat{background:var(--white);border:2px solid var(--border);border-radius:var(--r);padding:12px 14px;box-shadow:var(--sh)}
+.snap-stat-lbl{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:4px}
+.snap-stat-val{font-size:20px;font-weight:800;letter-spacing:-.5px}
+.snap-stat-sub{font-size:11px;color:var(--text3);margin-top:2px}
+.snap-empty{text-align:center;padding:40px;color:var(--text3);font-size:13px}
+.snap-empty i{font-size:36px;display:block;margin-bottom:10px;opacity:.3}
+/* modal actualizar precios */
+.upd-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)}
+.upd-row:last-child{border-bottom:none}
+.upd-activo{font-weight:700;font-size:13px;flex:1}
+.upd-meta{font-size:11px;color:var(--text3)}
+.upd-input{width:120px;padding:5px 8px;font-size:13px;border:2px solid var(--border);border-radius:6px;text-align:right;font-family:var(--font);background:var(--white);color:var(--text)}
+.upd-input:focus{outline:none;border-color:var(--acc)}
+.upd-pnl{font-size:11px;font-weight:700;min-width:60px;text-align:right}
+
 /* ===== v6.1: FILTRO DE FECHAS (ingresos & gastos) ===== */
 .filtro-fecha-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:var(--bg2);border:1.5px solid var(--border);border-radius:var(--r);padding:8px 12px;margin-bottom:12px}
 .filtro-fecha-bar select,.filtro-fecha-bar input[type=date]{font-size:12px;padding:4px 8px;border:1.5px solid var(--border);border-radius:6px;background:var(--white);color:var(--text);font-family:var(--font)}
@@ -599,6 +628,32 @@ input:checked+.proy-slider:before{transform:translateX(16px)}
       <button class="bp" onclick="openModal('modal-inv')"><i class="ti ti-plus"></i>Agregar</button>
     </div>
   </div>
+
+  <!-- Barra cierre de mes -->
+  <div class="snap-bar">
+    <div class="snap-bar-info">
+      <div class="snap-bar-title"><i class="ti ti-calendar-check"></i> Cierre mensual del portafolio</div>
+      <div class="snap-bar-sub" id="snap-bar-sub">Actualizá los precios y guardá el snapshot del mes para ver la evolución</div>
+    </div>
+    <div class="snap-bar-actions">
+      <button class="snap-btn secondary" onclick="openUpdPrecios()"><i class="ti ti-pencil"></i> Actualizar precios</button>
+      <button class="snap-btn" onclick="cerrarMes()"><i class="ti ti-device-floppy"></i> Cerrar mes</button>
+    </div>
+  </div>
+
+  <!-- Gráficos de portfolio -->
+  <div id="inv-charts-wrap">
+    <div class="snap-stat-grid" id="inv-snap-stats"></div>
+    <div class="inv-chart-card">
+      <div class="inv-chart-title">Evolución del portafolio <span id="inv-chart-cur-lbl">en ARS</span></div>
+      <div id="inv-chart-area"></div>
+    </div>
+    <div class="inv-chart-card">
+      <div class="inv-chart-title">PNL mensual <span>ganancia/pérdida vs mes anterior</span></div>
+      <div id="inv-chart-pnl"></div>
+    </div>
+  </div>
+
   <div class="g3" id="inv-metrics"></div>
   <div class="card"><div class="ct">Distribución por tipo</div><div id="inv-dist"></div></div>
   <div class="card" style="padding:0"><div class="tbl-wrap"><table>
@@ -877,6 +932,22 @@ input:checked+.proy-slider:before{transform:translateX(16px)}
     <div class="paleta-grid" id="paleta-grid"></div>
     <div style="display:flex;gap:8px;margin-top:16px">
       <button class="bs" onclick="closeModal('modal-paleta')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Actualizar precios actuales -->
+<div class="modal-bg" id="modal-upd-precios">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-title">
+      <span><i class="ti ti-trending-up"></i> Actualizar precios actuales</span>
+      <button class="cx" onclick="closeModal('modal-upd-precios')">×</button>
+    </div>
+    <p style="font-size:12px;color:var(--text2);margin-bottom:12px">Ingresá el precio actual de cada activo antes de cerrar el mes. El PNL se calcula automáticamente.</p>
+    <div id="upd-precios-rows"></div>
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <button class="bp" onclick="guardarPrecios()"><i class="ti ti-check"></i> Guardar precios</button>
+      <button class="bs" onclick="closeModal('modal-upd-precios')">Cancelar</button>
     </div>
   </div>
 </div>
@@ -1390,6 +1461,235 @@ function calcSimDeuda(){
       <div class="sim-bk-item"><div class="sim-bk-lbl">Ahorro mensual</div><div class="sim-bk-val">${strat==='monto'?fa(Math.round(r.cuota-r.nCuota)):'—'}</div></div>
     </div>
   </div>`;
+}
+
+// ======= PORTFOLIO SNAPSHOTS =======
+// Cada snapshot: {mes:'YYYY-MM', tc:number, posiciones:[{id,activo,tipo,plat,mon,qty,pe,pa}], totalARS:number}
+let invSnapshots=JSON.parse(localStorage.getItem('hc_inv_snapshots')||'[]');
+function saveSnapshots(){localStorage.setItem('hc_inv_snapshots',JSON.stringify(invSnapshots));}
+
+// Valor ARS de una posición dado un pa
+function posValARS(pos,tc){
+  const pa=pos.pa||0,qty=pos.qty||0;
+  return pos.mon==='USD'?pa*qty*tc:pa*qty;
+}
+function posInvARS(pos,tc){
+  const pe=pos.pe||0,qty=pos.qty||0;
+  return pos.mon==='USD'?pe*qty*tc:pe*qty;
+}
+
+// Abre modal y renderiza filas editables
+function openUpdPrecios(){
+  const rows=document.getElementById('upd-precios-rows');
+  rows.innerHTML=inversiones.map(inv=>{
+    const sym=inv.mon==='USD'?'U$D ':'$';
+    const pnlPct=inv.pe>0?((inv.pa-inv.pe)/inv.pe*100):0;
+    const pnlCls=pnlPct>=0?'pos':'neg';
+    return `<div class="upd-row">
+      <div style="flex:1">
+        <div class="upd-activo">${inv.activo} <span class="pill tg-blue" style="font-size:10px">${inv.tipo}</span></div>
+        <div class="upd-meta">${inv.plat} · ${inv.qty} unidades · P.entrada: ${sym}${inv.pe.toLocaleString('es-AR')}</div>
+      </div>
+      <input class="upd-input" type="number" id="upd-pa-${inv.id}" value="${inv.pa}" min="0" step="any"
+        oninput="updPaPreview(${inv.id},this.value)"/>
+      <div class="upd-pnl ${pnlCls}" id="upd-pnl-${inv.id}">${pnlPct>=0?'+':''}${pnlPct.toFixed(1)}%</div>
+    </div>`;
+  }).join('');
+  openModal('modal-upd-precios');
+}
+function updPaPreview(id,val){
+  const inv=inversiones.find(i=>i.id===id);if(!inv)return;
+  const pa=parseFloat(val)||0;
+  const pct=inv.pe>0?(pa-inv.pe)/inv.pe*100:0;
+  const el=document.getElementById('upd-pnl-'+id);
+  if(el){el.textContent=(pct>=0?'+':'')+pct.toFixed(1)+'%';el.className='upd-pnl '+(pct>=0?'pos':'neg');}
+}
+function guardarPrecios(){
+  inversiones.forEach(inv=>{
+    const inp=document.getElementById('upd-pa-'+inv.id);
+    if(inp){const v=parseFloat(inp.value);if(!isNaN(v)&&v>=0)inv.pa=v;}
+  });
+  closeModal('modal-upd-precios');
+  renderInv();
+  toast('Precios actualizados');
+}
+
+// Cerrar mes: guarda snapshot con estado actual de inversiones
+function cerrarMes(){
+  const now=new Date();
+  const mes=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+  // No duplicar si ya existe snapshot de este mes
+  if(invSnapshots.find(s=>s.mes===mes)){
+    if(!confirm('Ya existe un snapshot para '+mes+'. ¿Sobreescribir?')) return;
+    invSnapshots=invSnapshots.filter(s=>s.mes!==mes);
+  }
+  const tc=cfg.tc||1;
+  const posiciones=inversiones.map(i=>({id:i.id,activo:i.activo,tipo:i.tipo,plat:i.plat,mon:i.mon,qty:i.qty,pe:i.pe,pa:i.pa}));
+  const totalARS=posiciones.reduce((a,p)=>a+posValARS(p,tc),0);
+  const totalInvARS=posiciones.reduce((a,p)=>a+posInvARS(p,tc),0);
+  invSnapshots.push({mes,tc,posiciones,totalARS,totalInvARS});
+  invSnapshots.sort((a,b)=>a.mes.localeCompare(b.mes));
+  saveSnapshots();
+  renderInv();
+  toast('Snapshot '+mes+' guardado ✓');
+}
+
+// Renderiza gráficos de portfolio a partir de snapshots
+function renderInvCharts(){
+  const wrap=document.getElementById('inv-charts-wrap');
+  const statsEl=document.getElementById('inv-snap-stats');
+  const areaEl=document.getElementById('inv-chart-area');
+  const pnlEl=document.getElementById('inv-chart-pnl');
+  const curLbl=document.getElementById('inv-chart-cur-lbl');
+  if(!wrap) return;
+
+  const tc=cfg.tc||1;
+  const cf=curCur==='USD'?1/tc:1;
+  const sym=curCur==='USD'?'U$D ':'$';
+  if(curLbl) curLbl.textContent='en '+(curCur==='USD'?'USD':'ARS');
+
+  // Calcular valor actual (sin snapshot): como punto "hoy"
+  const hoy=new Date();
+  const meHoy=hoy.getFullYear()+'-'+String(hoy.getMonth()+1).padStart(2,'0');
+  const valHoy=inversiones.reduce((a,i)=>a+toARSa(i),0);
+  const invHoy=inversiones.reduce((a,i)=>a+toARS(i),0);
+
+  // Si no hay snapshots, mostrar estado vacío con prompt
+  if(!invSnapshots.length){
+    if(statsEl) statsEl.innerHTML='';
+    if(areaEl) areaEl.innerHTML=`<div class="snap-empty"><i class="ti ti-chart-area"></i>Aún no hay snapshots guardados.<br>Actualizá los precios y hacé click en <b>Cerrar mes</b> para empezar a ver la evolución.</div>`;
+    if(pnlEl) pnlEl.innerHTML='';
+    document.getElementById('snap-bar-sub').textContent='Actualizá los precios y guardá el snapshot del mes para ver la evolución';
+    return;
+  }
+
+  // Construir serie temporal (snapshots + punto actual si no existe hoy)
+  let serie=[...invSnapshots];
+  if(!serie.find(s=>s.mes===meHoy)){
+    serie.push({mes:meHoy,tc,totalARS:valHoy,totalInvARS:invHoy,_virtual:true});
+  }
+  serie.sort((a,b)=>a.mes.localeCompare(b.mes));
+
+  // Valores en moneda seleccionada
+  const vals=serie.map(s=>({
+    mes:s.mes,
+    total:Math.round(s.totalARS*cf),
+    inv:Math.round(s.totalInvARS*cf),
+    virtual:!!s._virtual
+  }));
+
+  // PNL mensual: delta respecto al mes anterior
+  const pnlVals=vals.map((v,i)=>{
+    if(i===0) return {mes:v.mes,pnl:0};
+    return {mes:v.mes,pnl:v.total-vals[i-1].total};
+  }).slice(1);
+
+  // Stats
+  const first=vals[0],last=vals[vals.length-1];
+  const pnlTotal=last.total-first.inv;
+  const pnlPct=first.inv>0?pnlTotal/first.inv*100:0;
+  const fallbackMes={mes:meHoy,pnl:0};
+  const mejorMes=pnlVals.length?pnlVals.reduce((a,b)=>b.pnl>a.pnl?b:a):fallbackMes;
+  const peorMes=pnlVals.length?pnlVals.reduce((a,b)=>b.pnl<a.pnl?b:a):fallbackMes;
+
+  // Formatear mes YYYY-MM → MMM YY
+  const fmMes=m=>{const[y,mo]=m.split('-');return MONTHS[parseInt(mo)-1].slice(0,3)+' '+y.slice(2);};
+
+  if(statsEl) statsEl.innerHTML=`
+    <div class="snap-stat"><div class="snap-stat-lbl">Valor actual</div><div class="snap-stat-val" style="color:var(--acc)">${sym}${last.total.toLocaleString('es-AR')}</div><div class="snap-stat-sub">portafolio total</div></div>
+    <div class="snap-stat"><div class="snap-stat-lbl">PNL total</div><div class="snap-stat-val ${pnlTotal>=0?'pos':'neg'}">${pnlTotal>=0?'+':''}${sym}${Math.abs(pnlTotal).toLocaleString('es-AR')}</div><div class="snap-stat-sub">${pnlPct>=0?'+':''}${pnlPct.toFixed(1)}% desde inicio</div></div>
+    <div class="snap-stat"><div class="snap-stat-lbl">Mejor mes</div><div class="snap-stat-val pos">${sym}${mejorMes.pnl.toLocaleString('es-AR')}</div><div class="snap-stat-sub">${fmMes(mejorMes.mes)}</div></div>
+    <div class="snap-stat"><div class="snap-stat-lbl">Peor mes</div><div class="snap-stat-val neg">${sym}${Math.abs(peorMes.pnl).toLocaleString('es-AR')}</div><div class="snap-stat-sub">${fmMes(peorMes.mes)}</div></div>`;
+
+  // Gráfico línea/área evolución
+  const labels=vals.map(v=>fmMes(v.mes));
+  const serieTotal={label:'Valor',color:'var(--acc)',data:vals.map(v=>v.total)};
+  const serieInv={label:'Invertido',color:'var(--text3)',data:vals.map(v=>v.inv),dashed:true};
+  if(areaEl) areaEl.innerHTML=svgLineaArea([serieTotal,serieInv],{labels,w:640,h:160,sym});
+
+  // Gráfico barras PNL mensual
+  if(pnlEl){
+    if(!pnlVals.length){pnlEl.innerHTML='<div class="snap-empty" style="padding:20px">Necesitás al menos 2 snapshots para ver el PNL mensual.</div>';return;}
+    pnlEl.innerHTML=svgBarrasPNL(pnlVals.map(v=>({label:fmMes(v.mes),value:v.pnl})),{w:640,h:130,sym});
+  }
+
+  // Actualizar subtítulo de la snap-bar
+  const lastSnap=invSnapshots[invSnapshots.length-1];
+  document.getElementById('snap-bar-sub').textContent=`Último snapshot: ${fmMes(lastSnap.mes)} · ${invSnapshots.length} mes${invSnapshots.length>1?'es':''} registrados`;
+}
+
+// SVG línea + área para evolución del portafolio
+function svgLineaArea(series,{labels=[],w=640,h=160,padX=44,padY=20,sym='$'}={}){
+  if(!series[0]||!series[0].data.length) return '';
+  const n=series[0].data.length;
+  const allVals=series.flatMap(s=>s.data);
+  const minV=Math.min(...allVals),maxV=Math.max(...allVals);
+  const rng=maxV-minV||1;
+  const px=(i)=>padX+i*(w-padX*2)/(n-1||1);
+  const py=(v)=>padY+(1-(v-minV)/rng)*(h-padY*2);
+  // Grid lines
+  const steps=4;
+  let grid='';
+  for(let i=0;i<=steps;i++){
+    const v=minV+(rng/steps)*i;
+    const y=py(v);
+    const lbl=Math.abs(v)>=1000000?(v/1000000).toFixed(1)+'M':Math.abs(v)>=1000?(v/1000).toFixed(0)+'k':Math.round(v).toString();
+    grid+=`<line x1="${padX}" y1="${y}" x2="${w-padX}" y2="${y}" stroke="var(--border)" stroke-width="1"/>
+      <text x="${padX-4}" y="${y+4}" text-anchor="end" font-size="9" fill="var(--text3)">${sym.trim()}${lbl}</text>`;
+  }
+  // X labels
+  let xlabels='';
+  const step=Math.max(1,Math.floor(n/6));
+  for(let i=0;i<n;i+=step){
+    xlabels+=`<text x="${px(i)}" y="${h-4}" text-anchor="middle" font-size="9" fill="var(--text3)">${labels[i]||''}</text>`;
+  }
+  // Area + line for each series
+  let paths='';
+  series.forEach((s,si)=>{
+    const pts=s.data.map((v,i)=>`${px(i)},${py(v)}`).join(' ');
+    if(si===0){
+      // Area fill
+      const areaPath=`M${px(0)},${py(s.data[0])} `+s.data.map((v,i)=>`L${px(i)},${py(v)}`).join(' ')+` L${px(n-1)},${h-padY} L${px(0)},${h-padY} Z`;
+      paths+=`<defs><linearGradient id="area-grad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${s.color}" stop-opacity=".18"/><stop offset="100%" stop-color="${s.color}" stop-opacity=".01"/></linearGradient></defs>
+        <path d="${areaPath}" fill="url(#area-grad)"/>`;
+    }
+    const dash=s.dashed?'stroke-dasharray="4 3"':'';
+    paths+=`<polyline points="${pts}" fill="none" stroke="${s.color}" stroke-width="${si===0?2:1.5}" ${dash}/>`;
+    // Dots para serie principal
+    if(si===0) s.data.forEach((v,i)=>{
+      paths+=`<circle cx="${px(i)}" cy="${py(v)}" r="3" fill="${s.color}" stroke="var(--white)" stroke-width="1.5"/>`;
+    });
+  });
+  return `<svg viewBox="0 0 ${w} ${h}" style="width:100%;max-width:${w}px;display:block;overflow:visible">${grid}${xlabels}${paths}</svg>`;
+}
+
+// SVG barras PNL mensual con colores pos/neg
+function svgBarrasPNL(items,{w=640,h=130,padX=44,padY=16,sym='$'}={}){
+  if(!items.length) return '';
+  const n=items.length;
+  const vals=items.map(i=>i.value);
+  const maxAbs=Math.max(...vals.map(v=>Math.abs(v)),1);
+  const barW=Math.max(8,Math.floor((w-padX*2)/(n*1.4)));
+  const barGap=(w-padX*2)/n;
+  const baseline=padY+(h-padY*2)/2;
+  const scaleH=(h-padY*2)/2/maxAbs;
+  let bars='',xlabels='';
+  items.forEach((item,i)=>{
+    const x=padX+i*barGap+(barGap-barW)/2;
+    const bh=Math.max(2,Math.abs(item.value)*scaleH);
+    const y=item.value>=0?baseline-bh:baseline;
+    const col=item.value>=0?'#1D9E75':'#E24B4A';
+    bars+=`<rect x="${x}" y="${y}" width="${barW}" height="${bh}" fill="${col}" rx="2"/>`;
+    // Valor encima/debajo de la barra
+    const lbl=Math.abs(item.value)>=1000000?(item.value/1000000).toFixed(1)+'M':Math.abs(item.value)>=1000?(item.value/1000).toFixed(0)+'k':Math.round(item.value).toString();
+    const ty=item.value>=0?y-3:y+bh+10;
+    bars+=`<text x="${x+barW/2}" y="${ty}" text-anchor="middle" font-size="8" fill="${col}" font-weight="700">${item.value>=0?'+':''}${lbl}</text>`;
+    xlabels+=`<text x="${x+barW/2}" y="${h-2}" text-anchor="middle" font-size="9" fill="var(--text3)">${item.label}</text>`;
+  });
+  // Línea 0
+  const grid=`<line x1="${padX}" y1="${baseline}" x2="${w-padX}" y2="${baseline}" stroke="var(--border)" stroke-width="1.5"/>
+    <text x="${padX-4}" y="${baseline+4}" text-anchor="end" font-size="9" fill="var(--text3)">0</text>`;
+  return `<svg viewBox="0 0 ${w} ${h}" style="width:100%;max-width:${w}px;display:block;overflow:visible">${grid}${bars}${xlabels}</svg>`;
 }
 
 // ======= PALETAS DE COLORES =======
@@ -2900,6 +3200,7 @@ function renderImportar(){
 
 // ======= INVERSIONES =======
 function renderInv(){
+  renderInvCharts();
   const tc=cfg.tc;
   let tI=0,tA=0;inversiones.forEach(i=>{tI+=toARS(i);tA+=toARSa(i)});
   const pnl=tA-tI;
