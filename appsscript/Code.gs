@@ -342,20 +342,24 @@ function callClaude(body) {
     'Tu tarea:\n' +
     '1. Analizar el texto del extracto (BBVA, Nación, Santa Fe, Mercado Pago, etc.)\n' +
     '2. Identificar CADA transacción: fecha, monto, descripción\n' +
-    '3. Clasificar como "gasto" o "ingreso"\n' +
+    '3. Clasificar como "gasto", "ingreso" o "bonificacion"\n' +
     '4. Sugerir categoría de las listas válidas\n' +
     '5. Extraer info de cuotas (ej: "C.03/06"→cuotaActual=3,cuotasTotal=6; "3 de 6"→igual)\n' +
     '6. Si descripción coincide con historial → usar misma descripción+categoría, patronReconocido=true\n' +
-    '7. Retornar SOLO JSON válido, sin markdown\n\n' +
+    '7. Extraer el TOTAL A PAGAR del extracto (campo "totalAPagar")\n' +
+    '8. Verificar coherencia: sumar todos los gastos + impuestos − bonificaciones − reembolsos y comparar con totalAPagar\n' +
+    '9. Retornar SOLO JSON válido, sin markdown\n\n' +
     'Categorías válidas de GASTOS: [' + catGasto + ']\n' +
     'Categorías válidas de INGRESOS: [' + catIngreso + ']\n' +
     patronSection +
-    '\nReglas:\n' +
-    '- Débitos, compras, pagos → gasto\n' +
-    '- Acreditaciones, haberes, transferencias recibidas → ingreso\n' +
-    '- Impuestos, percepciones, intereses, cargos financieros, IVA, sellado, tasas → gasto, categoría "Impuestos y cargos"\n' +
+    '\nREGLAS DE CLASIFICACIÓN:\n' +
+    '- Débitos, compras, pagos → tipo "gasto"\n' +
+    '- Acreditaciones, haberes, transferencias recibidas → tipo "ingreso"\n' +
+    '- Impuestos, percepciones, intereses, cargos financieros, IVA, sellado, tasas, recargos → tipo "gasto", categoría "Impuestos y cargos"\n' +
     '  Aunque no tengan fecha propia, asignales la fecha de la transacción más cercana o la fecha del extracto\n' +
-    '- Pagos de tarjeta, saldos anteriores, totales del resumen → IGNORAR (no incluir)\n' +
+    '- Bonificaciones, reembolsos, descuentos, devoluciones de cargo → tipo "bonificacion" (monto positivo)\n' +
+    '- Pago mínimo, pago de tarjeta, saldo anterior, totales del resumen → IGNORAR (no incluir)\n\n' +
+    'REGLAS DE FORMATO:\n' +
     '- Fechas en formato YYYY-MM-DD:\n' +
     '  BBVA/BNA-MC "01-May-26"→"2026-05-01" | BNA-Visa "13.05.26"→"2026-05-13"\n' +
     '  Santa Fe "26 Mayo 05"→"2026-05-05" | MercadoPago "5/mar"→inferir año del documento\n' +
@@ -363,8 +367,21 @@ function callClaude(body) {
     '- Montos: número positivo sin símbolos ni puntos de miles (148033.24 no 148.033,24)\n' +
     '- Descripciones: máx 60 chars, sin nros de cupón ni prefijos * K\n' +
     '- Si no hay cuotas: cuotaActual=1, cuotasTotal=1\n\n' +
-    'Retornar SOLO este JSON:\n' +
-    '{"transacciones":[{"fecha":"2026-05-09","descripcion":"Carrefour Rosario","monto":148033.24,"tipo":"gasto","categoriaSugerida":"Supermercado","cuotaActual":1,"cuotasTotal":1,"patronReconocido":false}]}';
+    'VERIFICACIÓN DE COHERENCIA (OBLIGATORIA):\n' +
+    '- Buscar en el extracto el "TOTAL A PAGAR", "SALDO A PAGAR", "TOTAL DEL RESUMEN" o equivalente\n' +
+    '- Calcular: sumaCalculada = Σ gastos + Σ impuestosYcargos − Σ bonificaciones − Σ reembolsos\n' +
+    '- Si sumaCalculada difiere del totalAPagar en más de 1%:\n' +
+    '  a) Revisar si falta algún cargo o impuesto no listado\n' +
+    '  b) Verificar que ninguna bonificación/reembolso haya sido omitida\n' +
+    '  c) En campo "advertenciaCoherencia" explicar brevemente la diferencia\n' +
+    '- Si no se encuentra totalAPagar en el extracto: totalAPagar=null\n\n' +
+    'Retornar SOLO este JSON (sin texto extra ni markdown):\n' +
+    '{"totalAPagar":148033.24,"sumaCalculada":147900.00,"advertenciaCoherencia":null,' +
+    '"transacciones":[' +
+    '{"fecha":"2026-05-09","descripcion":"Carrefour Rosario","monto":148033.24,"tipo":"gasto","categoriaSugerida":"Supermercado","cuotaActual":1,"cuotasTotal":1,"patronReconocido":false},' +
+    '{"fecha":"2026-05-09","descripcion":"Percepción IIBB","monto":1200.00,"tipo":"gasto","categoriaSugerida":"Impuestos y cargos","cuotaActual":1,"cuotasTotal":1,"patronReconocido":false},' +
+    '{"fecha":"2026-05-09","descripcion":"Bonificación bienvenida","monto":500.00,"tipo":"bonificacion","categoriaSugerida":"Otros","cuotaActual":1,"cuotasTotal":1,"patronReconocido":false}' +
+    ']}';
 
   var payload = JSON.stringify({
     model: 'claude-haiku-4-5',

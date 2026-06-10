@@ -2996,8 +2996,9 @@ async function processPDF(file){
         setImpStatus('No se detectaron transacciones. Revisá el PDF o usá texto manual.','warn');
         return;
       }
-      buildImpPending(result.transacciones);
-      setImpStatus(`✓ ${result.transacciones.length} transacciones detectadas por IA`,'ok');
+      buildImpPending(result.transacciones, result);
+      const bonif=result.transacciones.filter(t=>t.tipo==='bonificacion').length;
+      setImpStatus(`✓ ${result.transacciones.length} transacciones detectadas por IA${bonif?` (incluye ${bonif} bonif./reembolso)`:''}${result.totalAPagar?` · Total extracto detectado: ${fa(result.totalAPagar)}`:''}`, 'ok');
     }catch(err){
       if(err.message==='NO_SHEETS'){
         fallbackTextoManual(texto);
@@ -3032,8 +3033,9 @@ async function processImportTexto(){
         setImpStatus('No se detectaron transacciones.','warn','imp-ia-status-texto');
         return;
       }
-      buildImpPending(result.transacciones);
-      setImpStatus(`✓ ${result.transacciones.length} transacciones detectadas`,'ok','imp-ia-status-texto');
+      buildImpPending(result.transacciones, result);
+      const bonif2=result.transacciones.filter(t=>t.tipo==='bonificacion').length;
+      setImpStatus(`✓ ${result.transacciones.length} transacciones detectadas${bonif2?` (incluye ${bonif2} bonif./reembolso)`:''}${result.totalAPagar?` · Total extracto: ${fa(result.totalAPagar)}`:''}`, 'ok', 'imp-ia-status-texto');
     }catch(err){
       setImpStatus(`${err.message}. Usando parser básico...`,'warn','imp-ia-status-texto');
       processImportBasico(text);
@@ -3078,7 +3080,8 @@ function processImportBasico(text){
 }
 
 // ── CONSTRUIR impPending DESDE RESULTADO DE IA O PARSER ───────────────────────
-function buildImpPending(transacciones){
+let impCoherencia={totalAPagar:null,sumaCalculada:null,advertencia:null}; // resultado de coherencia de la IA
+function buildImpPending(transacciones, metaDatos){
   const owner=document.getElementById('imp-owner').value;
   const medio=document.getElementById('imp-medio').value;
   const impMes=document.getElementById('imp-mes').value||_mesHoy; // mes del extracto = mes de imputación default
@@ -3090,8 +3093,20 @@ function buildImpPending(transacciones){
     patronMap[String(g.desc).toLowerCase().trim()]=true;
   });
 
+  // Guardar metadatos de coherencia que devuelve la IA
+  impCoherencia={
+    totalAPagar:metaDatos?.totalAPagar||null,
+    sumaCalculada:metaDatos?.sumaCalculada||null,
+    advertencia:metaDatos?.advertenciaCoherencia||null
+  };
+  // Auto-rellenar el campo de total del resumen si la IA lo detectó y el usuario no ingresó uno
+  if(impCoherencia.totalAPagar && !impTotalRef){
+    impTotalRef=impCoherencia.totalAPagar;
+  }
+
   impPending=transacciones.map(t=>{
-    const esGasto=t.tipo!=='ingreso';
+    const esBonif=t.tipo==='bonificacion';
+    const esGasto=!esBonif && t.tipo!=='ingreso';
     const catGastoOk=CAT[t.categoriaSugerida]?t.categoriaSugerida:'Otros';
     const catIngOk=tiposIngreso.includes(t.categoriaSugerida)?t.categoriaSugerida:'Otro';
     // Cuotas: Claude puede devolver cuotaActual y cuotasTotal (varios nombres posibles)
@@ -3100,14 +3115,16 @@ function buildImpPending(transacciones){
       parseInt(t.cuotasTotal||t.cuotas_total||t.totalCuotas||t.total_cuotas||t.cuotas)||1,
       cuotaActual
     );
+    // Las bonificaciones se importan como gastos de monto negativo (reducen el total)
+    const tipoFinal=esBonif?'bonificacion':(esGasto?'gasto':'ingreso');
     return{
       fecha:t.fecha||td(),
       desc:(t.descripcion||'').slice(0,80),
       monto:Math.abs(parseFloat(t.monto)||0),
-      tipo:esGasto?'gasto':'ingreso',
-      cat:esGasto?catGastoOk:catIngOk,
-      amb:esGasto?(CAT[catGastoOk]?.amb==='ind'?'ind':'fam'):'fam',
-      quien:owner==='fam'?(esGasto?'comp':owner):owner,
+      tipo:tipoFinal,
+      cat:esGasto||esBonif?catGastoOk:catIngOk,
+      amb:esGasto||esBonif?(CAT[catGastoOk]?.amb==='ind'?'ind':'fam'):'fam',
+      quien:owner==='fam'?((esGasto||esBonif)?'comp':owner):owner,
       medio,cuotas:cuotasTotal,cuotaActual,sel:true,
       imputacion:impMes,
       patronReconocido:!!patronMap[(t.descripcion||'').toLowerCase().trim()]
@@ -3125,56 +3142,80 @@ function renderImpPreview(){
   const sel=impPending.filter(p=>p.sel).length;
   const selItems=impPending.filter(p=>p.sel);
   const nGastos=selItems.filter(p=>p.tipo==='gasto').length;
+  const nBonif=selItems.filter(p=>p.tipo==='bonificacion').length;
   const nIng=selItems.filter(p=>p.tipo==='ingreso').length;
   const totalGastos=selItems.filter(p=>p.tipo==='gasto').reduce((a,p)=>a+p.monto,0);
+  const totalBonif=selItems.filter(p=>p.tipo==='bonificacion').reduce((a,p)=>a+p.monto,0);
   const totalIngresos=selItems.filter(p=>p.tipo==='ingreso').reduce((a,p)=>a+p.monto,0);
-  const neto=totalIngresos-totalGastos;
+  const totalNetoGastos=totalGastos-totalBonif; // gastos reales descontando bonificaciones
+  const neto=totalIngresos-totalNetoGastos;
   document.getElementById('imp-count-lbl').textContent=`${sel} de ${todos} seleccionadas`;
   document.getElementById('imp-summary').innerHTML=`
     <span class="tag tg-red">💸 ${nGastos} gastos</span>
+    ${nBonif?`<span class="tag tg-green">🎁 ${nBonif} bonif.</span>`:''}
     <span class="tag tg-green">💰 ${nIng} ingresos</span>
     <span class="tag tg-gray">${sel} seleccionados</span>
     ${localStorage.getItem('hc_ia_ok')==='1'&&DB.enabled()?'<span class="ia-badge"><i class="ti ti-robot"></i> Interpretado con IA</span>':''}`;
 
-  // Resumen de totales con comparación contra total del resumen bancario
-  const diff=impTotalRef>0?totalGastos-impTotalRef:null;
+  // Comparación contra total del resumen bancario
+  const diff=impTotalRef>0?totalNetoGastos-impTotalRef:null;
   const diffCls=diff===null?'':(Math.abs(diff)<1?'imp-tot-ok':Math.abs(diff)/impTotalRef<0.02?'imp-tot-warn':'imp-tot-err');
   const diffTxt=diff===null?'':(Math.abs(diff)<1?'✓ Coincide con el resumen':(diff>0?`+${fa(diff)} de más`:`${fa(diff)} de menos`)+` vs resumen`);
+
+  // Advertencia de coherencia de la IA (si la detectó)
+  const cohWarn=impCoherencia.advertencia
+    ?`<div class="imp-tot-item" style="grid-column:1/-1">
+        <span style="color:var(--warn);font-size:11px;font-weight:600">
+          <i class="ti ti-alert-triangle"></i> Advertencia de coherencia (IA):
+        </span>
+        <span style="font-size:11px;color:var(--text2);margin-left:4px">${escHTML(impCoherencia.advertencia)}</span>
+      </div>`
+    :'';
+
   const totEl=document.getElementById('imp-totales');
   if(totEl) totEl.innerHTML=`
     <div class="imp-tot-item">
-      <span class="imp-tot-lbl">Total gastos seleccionados</span>
+      <span class="imp-tot-lbl">Total gastos</span>
       <span class="imp-tot-val neg">${fa(totalGastos)}</span>
       <span style="font-size:10px;color:var(--text3)">${nGastos} transacciones</span>
     </div>
+    ${nBonif?`<div class="imp-tot-item">
+      <span class="imp-tot-lbl">Bonificaciones / reembolsos</span>
+      <span class="imp-tot-val pos">−${fa(totalBonif)}</span>
+      <span style="font-size:10px;color:var(--text3)">${nBonif} items</span>
+    </div>`:''}
     <div class="imp-tot-item">
-      <span class="imp-tot-lbl">Total ingresos seleccionados</span>
+      <span class="imp-tot-lbl">Gasto neto (gas − bonif.)</span>
+      <span class="imp-tot-val neg">${fa(totalNetoGastos)}</span>
+    </div>
+    ${nIng?`<div class="imp-tot-item">
+      <span class="imp-tot-lbl">Total ingresos</span>
       <span class="imp-tot-val pos">${fa(totalIngresos)}</span>
       <span style="font-size:10px;color:var(--text3)">${nIng} transacciones</span>
-    </div>
-    <div class="imp-tot-item">
-      <span class="imp-tot-lbl">Neto (ing − gas)</span>
-      <span class="imp-tot-val ${neto>=0?'pos':'neg'}">${neto>=0?'+':''}${fa(neto)}</span>
-    </div>
+    </div>`:''}
     <div class="imp-tot-item">
       <span class="imp-tot-lbl">Total del resumen bancario</span>
-      <input class="imp-tot-input" type="number" placeholder="Ingresá el total del extracto"
+      <input class="imp-tot-input" type="number" placeholder="Ingresá o detectado automáticamente"
         value="${impTotalRef||''}" min="0" step="any"
         oninput="impTotalRef=parseFloat(this.value)||0;renderImpPreview()"
-        title="Total a pagar del resumen bancario para verificar que coincida"/>
+        title="Total a pagar del resumen bancario. La IA lo detecta automáticamente del texto."/>
       ${diffTxt?`<span class="imp-tot-diff ${diffCls}">${diffTxt}</span>`:''}
-    </div>`;
+      ${impCoherencia.totalAPagar&&!impTotalRef?`<span style="font-size:10px;color:var(--text3)">La IA detectó ${fa(impCoherencia.totalAPagar)} — hacé click para confirmar</span>`:''}
+    </div>
+    ${cohWarn}`;
 
   const tiposIngreso=['Sueldo neto','Premio / bono','Aguinaldo','Negocio / freelance','Alquiler cobrado','Dividendos','Devolución','Otro'];
 
   document.getElementById('imp-tbody').innerHTML=impPending.map((p,i)=>{
     const esGasto=p.tipo==='gasto';
-    const catOpts=esGasto
+    const esBonif=p.tipo==='bonificacion';
+    const esIngreso=p.tipo==='ingreso';
+    const catOpts=(esGasto||esBonif)
       ?Object.keys(CAT).map(c=>`<option${c===p.cat?' selected':''}>${c}</option>`).join('')
       :tiposIngreso.map(t=>`<option${t===p.cat?' selected':''}>${t}</option>`).join('');
 
-    // Columna Ámbito — solo para gastos (ingreso no tiene ámbito)
-    const colAmbito=esGasto
+    // Columna Ámbito — solo para gastos/bonificaciones
+    const colAmbito=(esGasto||esBonif)
       ?`<select class="imp-sel-col" onchange="impPending[${i}].amb=this.value">
           <option value="fam"${p.amb==='fam'?' selected':''}>Familiar</option>
           <option value="u1"${p.amb==='u1'?' selected':''}>Personal ${cfg.u1}</option>
@@ -3204,12 +3245,15 @@ function renderImpPreview(){
     // Badge de patrón reconocido
     const patronBadge=p.patronReconocido?` <span title="Patrón reconocido de meses anteriores" style="font-size:10px;color:var(--acc-m)">✦</span>`:'';
 
-    return`<tr style="${!p.sel?'opacity:.4':''}">
+    // Color de fila según tipo
+    const rowStyle=!p.sel?'opacity:.4':esBonif?'background:rgba(29,158,117,.08)':'';
+    return`<tr style="${rowStyle}">
       <td><input type="checkbox" ${p.sel?'checked':''} onchange="impPending[${i}].sel=this.checked;renderImpPreview()"></td>
       <td>
-        <select onchange="impPending[${i}].tipo=this.value;impPending[${i}].cat=this.value==='gasto'?'Otros':'Otro';renderImpPreview()" style="font-size:11px;padding:3px">
+        <select onchange="impPending[${i}].tipo=this.value;impPending[${i}].cat=this.value==='ingreso'?'Otro':'Otros';renderImpPreview()" style="font-size:11px;padding:3px">
           <option value="gasto"${esGasto?' selected':''}>💸 Gasto</option>
-          <option value="ingreso"${!esGasto?' selected':''}>💰 Ingreso</option>
+          <option value="ingreso"${esIngreso?' selected':''}>💰 Ingreso</option>
+          <option value="bonificacion"${esBonif?' selected':''}>🎁 Bonif.</option>
         </select>
       </td>
       <td><input type="date" value="${p.fecha}" onchange="impPending[${i}].fecha=this.value" style="font-size:11px;padding:3px;width:120px" title="${fd(p.fecha)}"/></td>
@@ -3219,7 +3263,7 @@ function renderImpPreview(){
       <td>${colQuien}</td>
       <td>${colCuotas}</td>
       <td><input type="month" value="${p.imputacion||''}" onchange="impPending[${i}].imputacion=this.value" style="font-size:11px;padding:3px;width:110px;border:1px solid var(--border);border-radius:6px" title="Mes al que se imputa este movimiento"/></td>
-      <td class="r ${esGasto?'neg':'pos'}" style="font-weight:700">${fa(p.monto)}</td>
+      <td class="r ${esBonif?'pos':esGasto?'neg':'pos'}" style="font-weight:700">${esBonif?'−':''}${fa(p.monto)}</td>
       <td><button class="del-btn" onclick="impPending.splice(${i},1);renderImpPreview()" title="Eliminar fila"><i class="ti ti-trash"></i></button></td>
     </tr>`;
   }).join('');
@@ -3607,16 +3651,18 @@ async function confirmImport(){
     }
   }
 
-  // Separar por tipo
-  const selGastos=sel.filter(p=>p.tipo==='gasto');
+  // Separar por tipo (bonificaciones se guardan como gastos negativos)
+  const selGastos=sel.filter(p=>p.tipo==='gasto'||p.tipo==='bonificacion');
   const selIngresos=sel.filter(p=>p.tipo==='ingreso');
 
-  // Insertar gastos en módulo Gastos
+  // Insertar gastos en módulo Gastos (bonificaciones con monto negativo)
   const nuevosGastos=selGastos.map(p=>({
     id:nid++,fecha:p.fecha,desc:p.desc,cat:p.cat,
     amb:p.amb||'fam',quien:p.quien||'comp',
     medio:p.medio||'Extracto banco',
-    monto:p.monto,cuotas:p.cuotas||1,notas:p.cuotas>1?`Cuota ${p.cuotaActual||1}/${p.cuotas}`:'Importado',
+    monto:p.tipo==='bonificacion'?-p.monto:p.monto,
+    cuotas:p.cuotas||1,
+    notas:p.tipo==='bonificacion'?'Bonificación/reembolso importado':(p.cuotas>1?`Cuota ${p.cuotaActual||1}/${p.cuotas}`:'Importado'),
     imputacion:p.imputacion||''
   }));
   nuevosGastos.forEach(r=>gastos.push(r));
