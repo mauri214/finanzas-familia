@@ -769,9 +769,10 @@ input:checked+.proy-slider:before{transform:translateX(16px)}
 
   <div class="card">
     <div class="ct">Gestionar categorías de gastos</div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:8px">El ámbito (familiar/individual) se define en cada gasto, no en la categoría.</div>
     <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap">
-      <input id="nc-name" placeholder="Nueva categoría" style="flex:1;min-width:120px"/>
-      <select id="nc-amb" style="flex:1;min-width:100px"><option value="fam">Familiar</option><option value="ind">Individual</option></select>
+      <input id="nc-name" placeholder="Nueva categoría" style="flex:1;min-width:160px"
+        onkeydown="if(event.key==='Enter')addCat()"/>
       <input id="nc-color" type="color" value="#1D9E75" style="width:36px;padding:2px;cursor:pointer"/>
       <button class="bp" onclick="addCat()"><i class="ti ti-plus"></i>Agregar</button>
     </div>
@@ -3142,7 +3143,7 @@ function buildImpPending(transacciones, metaDatos){
       monto:Math.abs(parseFloat(t.monto)||0),
       tipo:tipoFinal,
       cat:esGasto||esBonif?catGastoOk:catIngOk,
-      amb:esGasto||esBonif?(CAT[catGastoOk]?.amb==='ind'?'ind':'fam'):'fam',
+      amb:'fam', // el ámbito se ajusta manualmente en la tabla de preview
       quien:owner==='fam'?((esGasto||esBonif)?'comp':owner):owner,
       medio,cuotas:cuotasTotal,cuotaActual,sel:true,
       imputacion:impMes,
@@ -3762,17 +3763,17 @@ function fillIngTipoSel(id,selVal){
   el.innerHTML=TIPOS_INGRESO.map(t=>`<option${t===selVal?' selected':''}>${escHTML(t)}</option>`).join('');
 }
 function renderCatsList(){
-  document.getElementById('cats-list').innerHTML=Object.entries(CAT).map(([n,info])=>`<div class="ri"><div class="cdot" style="background:${info.color}"></div><div class="rd" style="font-size:12px">${n}<small>${info.amb==='fam'?'Familiar':'Individual'}</small></div><button class="del-btn" onclick="delCat('${n}')"><i class="ti ti-trash"></i></button></div>`).join('');
+  document.getElementById('cats-list').innerHTML=Object.entries(CAT).map(([n,info])=>`<div class="ri"><div class="cdot" style="background:${info.color}"></div><div class="rd" style="font-size:12px">${escHTML(n)}</div><button class="del-btn" onclick="delCat('${escHTML(n)}')"><i class="ti ti-trash"></i></button></div>`).join('');
 }
 async function addCat(){
   const n=document.getElementById('nc-name').value.trim();if(!n)return;
+  if(CAT[n]){toast('Ya existe esa categoría',true);return;}
   const color=document.getElementById('nc-color').value;
-  const amb=document.getElementById('nc-amb').value;
-  CAT[n]={color,amb};
+  CAT[n]={color,amb:'fam'}; // amb en 'fam' por defecto, no se usa para lógica
   document.getElementById('nc-name').value='';
   renderCatsList();fillCatSel('g-cat');
   toast('Categoría agregada');
-  if(DB.enabled()) await DB.insert('Categorias',{nombre:n,color,amb}).catch(()=>{});
+  if(DB.enabled()) await DB.insert('Categorias',{nombre:n,color,amb:'fam'}).catch(()=>{});
 }
 async function delCat(n){
   if(!confirm(`¿Eliminar la categoría "${n}"?`))return;
