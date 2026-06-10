@@ -219,7 +219,18 @@ tr:hover td{background:var(--bg)}
 .ia-status.error i{color:var(--dan)}.ia-status.error{border-color:var(--dan-l);background:var(--dan-l)}
 .ia-status.warn i{color:var(--warn)}.ia-status.warn{border-color:var(--warn-l);background:var(--warn-l)}
 .imp-tipo-gasto{color:var(--dan);font-weight:800}.imp-tipo-ingreso{color:var(--acc-m);font-weight:800}
-.imp-summary{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.imp-summary{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+/* Resumen de totales importación */
+.imp-totales{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;margin-bottom:12px;padding:12px;background:var(--bg2);border:1.5px solid var(--border);border-radius:var(--r)}
+.imp-tot-item{display:flex;flex-direction:column;gap:2px}
+.imp-tot-lbl{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text2)}
+.imp-tot-val{font-size:16px;font-weight:800}
+.imp-tot-input{font-size:13px;padding:4px 8px;border:2px solid var(--border);border-radius:6px;font-family:var(--font);background:var(--white);color:var(--text);width:100%;box-sizing:border-box}
+.imp-tot-input:focus{outline:none;border-color:var(--acc)}
+.imp-tot-diff{font-size:11px;margin-top:2px;font-weight:700}
+.imp-tot-ok{color:#1D9E75}.imp-tot-warn{color:#EF9F27}.imp-tot-err{color:#E24B4A}
+/* Fix ancho columnas ámbito/usuario */
+.imp-sel-col{min-width:90px;font-size:11px;padding:3px;border:1.5px solid var(--border);border-radius:5px;background:var(--white)}
 .ia-badge{display:inline-flex;align-items:center;gap:5px;background:var(--carbon);color:var(--ivory);font-size:9px;font-weight:800;padding:3px 9px;border-radius:20px;letter-spacing:.5px;text-transform:uppercase;border:1.5px solid rgba(255,255,255,.15)}
 .imp-thead-tipo{min-width:100px}
 
@@ -593,6 +604,7 @@ input:checked+.proy-slider:before{transform:translateX(16px)}
     <div class="card">
       <div class="ct">2. Revisá y editá antes de confirmar <span id="imp-count-lbl"></span></div>
       <div class="imp-summary" id="imp-summary"></div>
+      <div class="imp-totales" id="imp-totales"></div>
       <div style="font-size:11px;color:var(--text3);margin-bottom:10px">Podés editar cualquier campo, cambiar el tipo (gasto/ingreso), la categoría o eliminar filas. Los gastos van al módulo Gastos y los ingresos al módulo Ingresos.</div>
       <div class="tbl-wrap"><table>
         <thead><tr>
@@ -3107,17 +3119,51 @@ function buildImpPending(transacciones){
 }
 
 // ── PREVIEW EDITABLE ──────────────────────────────────────────────────────────
+let impTotalRef=0; // total del resumen bancario ingresado por el usuario
 function renderImpPreview(){
   const todos=impPending.length;
   const sel=impPending.filter(p=>p.sel).length;
-  const nGastos=impPending.filter(p=>p.sel&&p.tipo==='gasto').length;
-  const nIng=impPending.filter(p=>p.sel&&p.tipo==='ingreso').length;
+  const selItems=impPending.filter(p=>p.sel);
+  const nGastos=selItems.filter(p=>p.tipo==='gasto').length;
+  const nIng=selItems.filter(p=>p.tipo==='ingreso').length;
+  const totalGastos=selItems.filter(p=>p.tipo==='gasto').reduce((a,p)=>a+p.monto,0);
+  const totalIngresos=selItems.filter(p=>p.tipo==='ingreso').reduce((a,p)=>a+p.monto,0);
+  const neto=totalIngresos-totalGastos;
   document.getElementById('imp-count-lbl').textContent=`${sel} de ${todos} seleccionadas`;
   document.getElementById('imp-summary').innerHTML=`
     <span class="tag tg-red">💸 ${nGastos} gastos</span>
     <span class="tag tg-green">💰 ${nIng} ingresos</span>
     <span class="tag tg-gray">${sel} seleccionados</span>
     ${localStorage.getItem('hc_ia_ok')==='1'&&DB.enabled()?'<span class="ia-badge"><i class="ti ti-robot"></i> Interpretado con IA</span>':''}`;
+
+  // Resumen de totales con comparación contra total del resumen bancario
+  const diff=impTotalRef>0?totalGastos-impTotalRef:null;
+  const diffCls=diff===null?'':(Math.abs(diff)<1?'imp-tot-ok':Math.abs(diff)/impTotalRef<0.02?'imp-tot-warn':'imp-tot-err');
+  const diffTxt=diff===null?'':(Math.abs(diff)<1?'✓ Coincide con el resumen':(diff>0?`+${fa(diff)} de más`:`${fa(diff)} de menos`)+` vs resumen`);
+  const totEl=document.getElementById('imp-totales');
+  if(totEl) totEl.innerHTML=`
+    <div class="imp-tot-item">
+      <span class="imp-tot-lbl">Total gastos seleccionados</span>
+      <span class="imp-tot-val neg">${fa(totalGastos)}</span>
+      <span style="font-size:10px;color:var(--text3)">${nGastos} transacciones</span>
+    </div>
+    <div class="imp-tot-item">
+      <span class="imp-tot-lbl">Total ingresos seleccionados</span>
+      <span class="imp-tot-val pos">${fa(totalIngresos)}</span>
+      <span style="font-size:10px;color:var(--text3)">${nIng} transacciones</span>
+    </div>
+    <div class="imp-tot-item">
+      <span class="imp-tot-lbl">Neto (ing − gas)</span>
+      <span class="imp-tot-val ${neto>=0?'pos':'neg'}">${neto>=0?'+':''}${fa(neto)}</span>
+    </div>
+    <div class="imp-tot-item">
+      <span class="imp-tot-lbl">Total del resumen bancario</span>
+      <input class="imp-tot-input" type="number" placeholder="Ingresá el total del extracto"
+        value="${impTotalRef||''}" min="0" step="any"
+        oninput="impTotalRef=parseFloat(this.value)||0;renderImpPreview()"
+        title="Total a pagar del resumen bancario para verificar que coincida"/>
+      ${diffTxt?`<span class="imp-tot-diff ${diffCls}">${diffTxt}</span>`:''}
+    </div>`;
 
   const tiposIngreso=['Sueldo neto','Premio / bono','Aguinaldo','Negocio / freelance','Alquiler cobrado','Dividendos','Devolución','Otro'];
 
@@ -3129,14 +3175,15 @@ function renderImpPreview(){
 
     // Columna Ámbito — solo para gastos (ingreso no tiene ámbito)
     const colAmbito=esGasto
-      ?`<select onchange="impPending[${i}].amb=this.value" style="font-size:11px;padding:3px">
+      ?`<select class="imp-sel-col" onchange="impPending[${i}].amb=this.value">
           <option value="fam"${p.amb==='fam'?' selected':''}>Familiar</option>
-          <option value="ind"${p.amb==='ind'?' selected':''}>Individual</option>
+          <option value="u1"${p.amb==='u1'?' selected':''}>Personal ${cfg.u1}</option>
+          <option value="u2"${p.amb==='u2'?' selected':''}>Personal ${cfg.u2}</option>
          </select>`
       :`<span style="color:var(--text3);font-size:11px">—</span>`;
 
     // Columna Usuario — quién pagó/recibió
-    const colQuien=`<select onchange="impPending[${i}].quien=this.value" style="font-size:11px;padding:3px">
+    const colQuien=`<select class="imp-sel-col" onchange="impPending[${i}].quien=this.value">
         <option value="u1"${p.quien==='u1'?' selected':''}>${cfg.u1}</option>
         <option value="u2"${p.quien==='u2'?' selected':''}>${cfg.u2}</option>
         <option value="comp"${p.quien==='comp'?' selected':''}>Ambos</option>
