@@ -768,7 +768,7 @@ input:checked+.proy-slider:before{transform:translateX(16px)}
   </div>
 
   <div class="card">
-    <div class="ct">Gestionar categorías</div>
+    <div class="ct">Gestionar categorías de gastos</div>
     <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap">
       <input id="nc-name" placeholder="Nueva categoría" style="flex:1;min-width:120px"/>
       <select id="nc-amb" style="flex:1;min-width:100px"><option value="fam">Familiar</option><option value="ind">Individual</option></select>
@@ -776,6 +776,17 @@ input:checked+.proy-slider:before{transform:translateX(16px)}
       <button class="bp" onclick="addCat()"><i class="ti ti-plus"></i>Agregar</button>
     </div>
     <div id="cats-list"></div>
+  </div>
+
+  <div class="card">
+    <div class="ct">Gestionar tipos de ingreso</div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:8px">Estos tipos aparecen al cargar un ingreso y en la importación con IA.</div>
+    <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap">
+      <input id="ni-tipo" placeholder="Nuevo tipo de ingreso" style="flex:1;min-width:160px"
+        onkeydown="if(event.key==='Enter')addTipoIng()"/>
+      <button class="bp" onclick="addTipoIng()"><i class="ti ti-plus"></i>Agregar</button>
+    </div>
+    <div id="tipos-ing-list"></div>
   </div>
 </div>
 
@@ -805,7 +816,7 @@ input:checked+.proy-slider:before{transform:translateX(16px)}
   <div class="modal">
     <div class="modal-title">Agregar ingreso <button class="cx" onclick="closeModal('modal-ingreso')">×</button></div>
     <div class="fr"><div class="fg"><div class="fl">Descripción *</div><input id="in-desc" placeholder="ej. Sueldo neto junio"/></div><div class="fg"><div class="fl">Monto (ARS) *</div><input id="in-monto" type="number" placeholder="0"/></div></div>
-    <div class="fr"><div class="fg"><div class="fl">Tipo</div><select id="in-tipo"><option>Sueldo neto</option><option>Premio / bono</option><option>Aguinaldo</option><option>Negocio / freelance</option><option>Alquiler cobrado</option><option>Dividendos</option><option>Otro</option></select></div><div class="fg"><div class="fl">¿De quién?</div><select id="in-quien"><option value="u1">VH</option><option value="u2">MG</option><option value="fam">Conjunto</option></select></div></div>
+    <div class="fr"><div class="fg"><div class="fl">Tipo</div><select id="in-tipo"></select></div><div class="fg"><div class="fl">¿De quién?</div><select id="in-quien"><option value="u1">VH</option><option value="u2">MG</option><option value="fam">Conjunto</option></select></div></div>
     <div class="fr"><div class="fg"><div class="fl">Fecha</div><input id="in-fecha" type="date"/></div><div class="fg"><div class="fl">¿Recurrente?</div><select id="in-rec"><option value="0">No</option><option value="1">Sí, mensual</option></select></div></div>
     <div class="fr"><div class="fg"><div class="fl">Imputar al mes <span style="font-size:10px;color:var(--text3);font-weight:500">(vacío = usar mes de la fecha)</span></div><input id="in-imputacion" type="month"/></div></div>
     <div style="display:flex;gap:6px;margin-top:10px"><button class="bp" onclick="saveIng()">Guardar</button><button class="bs" onclick="closeModal('modal-ingreso')">Cancelar</button></div>
@@ -1066,6 +1077,12 @@ const DB = {
         if (cfgRaw.app_nombre) cfg.app = cfgRaw.app_nombre;
         // migración: reemplazar nombre viejo por nuevo
         if (cfg.app === 'finanzas familia' || cfg.app === 'Finanzas Familia') cfg.app = 'HouseholdCap';
+        if (cfgRaw.tipos_ingreso) {
+          try {
+            const parsed = JSON.parse(cfgRaw.tipos_ingreso);
+            if (Array.isArray(parsed) && parsed.length) TIPOS_INGRESO = parsed;
+          } catch(e) {}
+        }
         applyNames();
       }
 
@@ -1120,6 +1137,8 @@ let CAT={
   'Gustos personales':{color:'#9B59B6',amb:'ind'},'Regalos':{color:'#E67E22',amb:'ind'},
   'Impuestos y cargos':{color:'#B0413E',amb:'fam'},'Otros':{color:'#5F5E5A',amb:'fam'}
 };
+const TIPOS_INGRESO_DEFAULT=['Sueldo neto','Premio / bono','Aguinaldo','Negocio / freelance','Alquiler cobrado','Dividendos','Devolución','Otro'];
+let TIPOS_INGRESO=[...TIPOS_INGRESO_DEFAULT];
 
 let ingresos=[
   {id:1,fecha:'2026-06-05',desc:'Sueldo neto junio',tipo:'Sueldo neto',quien:'u1',monto:1800000,rec:1},
@@ -1886,7 +1905,7 @@ function showSec(id){
     renderGastos();fillCatFilter();},
     importar:renderImportar,inversiones:renderInv,metas:renderMetas,deudas:renderDeudas,
     simulador:renderSimulador,
-    cargar:()=>{fillCatSel('g-cat');renderCatsList();renderPresupuestosConfig()}})[id]?.();
+    cargar:()=>{fillCatSel('g-cat');renderCatsList();renderTiposIngList();renderPresupuestosConfig()}})[id]?.();
 }
 
 function chMonth(d){curM+=d;if(curM>11){curM=0;curY++}if(curM<0){curM=11;curY--}
@@ -2936,7 +2955,7 @@ async function parseWithClaudeAPI(textoExtraido){
   if(!DB.enabled()) throw new Error('NO_SHEETS'); // sin Apps Script no hay proxy
 
   const catGasto=Object.keys(CAT).join(',');
-  const catIngreso='Sueldo neto,Premio / bono,Aguinaldo,Negocio / freelance,Alquiler cobrado,Dividendos,Devolución,Otro';
+  const catIngreso=TIPOS_INGRESO.join(',');
   const patrones=buildPatrones();
 
   // Fetch con timeout de 30s — si Apps Script / Claude no responden, aborta limpiamente
@@ -3085,7 +3104,7 @@ function buildImpPending(transacciones, metaDatos){
   const owner=document.getElementById('imp-owner').value;
   const medio=document.getElementById('imp-medio').value;
   const impMes=document.getElementById('imp-mes').value||_mesHoy; // mes del extracto = mes de imputación default
-  const tiposIngreso=['Sueldo neto','Premio / bono','Aguinaldo','Negocio / freelance','Alquiler cobrado','Dividendos','Devolución','Otro'];
+  const tiposIngreso=TIPOS_INGRESO;
   // Construir mapa de patrones para marcar coincidencias
   const patronMap={};
   const hace3m=new Date(); hace3m.setMonth(hace3m.getMonth()-3);
@@ -3204,7 +3223,7 @@ function renderImpPreview(){
     </div>
     ${cohWarn}`;
 
-  const tiposIngreso=['Sueldo neto','Premio / bono','Aguinaldo','Negocio / freelance','Alquiler cobrado','Dividendos','Devolución','Otro'];
+  const tiposIngreso=TIPOS_INGRESO;
 
   document.getElementById('imp-tbody').innerHTML=impPending.map((p,i)=>{
     const esGasto=p.tipo==='gasto';
@@ -3738,15 +3757,56 @@ function applyNames(){
 
 // ======= CATS =======
 function fillCatSel(id){document.getElementById(id).innerHTML=catOpts()}
+function fillIngTipoSel(id,selVal){
+  const el=document.getElementById(id);if(!el)return;
+  el.innerHTML=TIPOS_INGRESO.map(t=>`<option${t===selVal?' selected':''}>${escHTML(t)}</option>`).join('');
+}
 function renderCatsList(){
   document.getElementById('cats-list').innerHTML=Object.entries(CAT).map(([n,info])=>`<div class="ri"><div class="cdot" style="background:${info.color}"></div><div class="rd" style="font-size:12px">${n}<small>${info.amb==='fam'?'Familiar':'Individual'}</small></div><button class="del-btn" onclick="delCat('${n}')"><i class="ti ti-trash"></i></button></div>`).join('');
 }
-function addCat(){
+async function addCat(){
   const n=document.getElementById('nc-name').value.trim();if(!n)return;
-  CAT[n]={color:document.getElementById('nc-color').value,amb:document.getElementById('nc-amb').value};
-  document.getElementById('nc-name').value='';renderCatsList();fillCatSel('g-cat');toast('Categoría agregada');
+  const color=document.getElementById('nc-color').value;
+  const amb=document.getElementById('nc-amb').value;
+  CAT[n]={color,amb};
+  document.getElementById('nc-name').value='';
+  renderCatsList();fillCatSel('g-cat');
+  toast('Categoría agregada');
+  if(DB.enabled()) await DB.insert('Categorias',{nombre:n,color,amb}).catch(()=>{});
 }
-function delCat(n){delete CAT[n];renderCatsList();fillCatSel('g-cat')}
+async function delCat(n){
+  if(!confirm(`¿Eliminar la categoría "${n}"?`))return;
+  delete CAT[n];
+  renderCatsList();fillCatSel('g-cat');
+  if(DB.enabled()) await DB.call('deleteCat',null,{nombre:n}).catch(()=>{});
+}
+
+// ── TIPOS DE INGRESO ──────────────────────────────────────────
+function renderTiposIngList(){
+  const el=document.getElementById('tipos-ing-list');if(!el)return;
+  el.innerHTML=TIPOS_INGRESO.map((t,i)=>`
+    <div class="ri">
+      <div class="rd" style="font-size:12px">${escHTML(t)}</div>
+      ${TIPOS_INGRESO_DEFAULT.includes(t)?'<span style="font-size:10px;color:var(--text3)">predeterminado</span>':''}
+      <button class="del-btn" onclick="delTipoIng(${i})" ${TIPOS_INGRESO.length<=1?'disabled':''}><i class="ti ti-trash"></i></button>
+    </div>`).join('');
+}
+async function addTipoIng(){
+  const n=document.getElementById('ni-tipo').value.trim();if(!n)return;
+  if(TIPOS_INGRESO.includes(n)){toast('Ya existe ese tipo',true);return;}
+  TIPOS_INGRESO.push(n);
+  document.getElementById('ni-tipo').value='';
+  renderTiposIngList();
+  toast('Tipo de ingreso agregado');
+  if(DB.enabled()) await DB.setCfg({tipos_ingreso:JSON.stringify(TIPOS_INGRESO)}).catch(()=>{});
+}
+async function delTipoIng(i){
+  const t=TIPOS_INGRESO[i];
+  if(!confirm(`¿Eliminar el tipo de ingreso "${t}"?`))return;
+  TIPOS_INGRESO.splice(i,1);
+  renderTiposIngList();
+  if(DB.enabled()) await DB.setCfg({tipos_ingreso:JSON.stringify(TIPOS_INGRESO)}).catch(()=>{});
+}
 
 // ======= MODALS =======
 function openModal(id){
@@ -3763,6 +3823,13 @@ function openModal(id){
     document.getElementById('s-app').value=cfg.app;
     document.getElementById('s-script-url').value=DB.url;
     document.getElementById('s-script-token').value=DB.token;
+  }
+  if(id==='modal-ingreso'){
+    fillIngTipoSel('in-tipo');
+    document.getElementById('in-fecha').value=td();
+    document.getElementById('in-desc').value='';
+    document.getElementById('in-monto').value='';
+    document.getElementById('in-imputacion').value='';
   }
   document.getElementById(id).classList.add('open');
 }

@@ -67,6 +67,7 @@ function handleRequest(e) {
       case 'setCfg':        result = setCfg(data);             break;
       case 'initSheets':    result = initSheets();             break;
       case 'callClaude':    result = callClaude(body);         break;
+      case 'deleteCat':     result = deleteCat(body.nombre);   break;
       default:
         result = { ok: false, error: 'Acción desconocida: ' + action };
     }
@@ -449,6 +450,23 @@ function callClaude(body) {
   } catch (err) {
     return { ok: false, error: 'Error al llamar a Claude: ' + err.message };
   }
+}
+
+// ============================================================
+// ELIMINAR CATEGORÍA POR NOMBRE
+// ============================================================
+
+function deleteCat(nombre) {
+  var sh = getSheet('Categorias');
+  var rows = sh.getDataRange().getValues();
+  // Buscar por columna 'nombre' (primera columna)
+  for (var i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]) === String(nombre)) {
+      sh.deleteRow(i + 1);
+      return { ok: true };
+    }
+  }
+  return { ok: false, error: 'Categoría no encontrada: ' + nombre };
 }
 
 // ============================================================
