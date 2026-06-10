@@ -808,6 +808,7 @@ input:checked+.proy-slider:before{transform:translateX(16px)}
     <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap">
       <button class="bp" onclick="saveCfg()">Guardar</button>
       <button class="bs" onclick="recargarDesdeSheets()"><i class="ti ti-refresh"></i> Recargar desde Sheets</button>
+      <button class="bs" onclick="fixHeadersSheets()" title="Repara columnas faltantes en el Sheet (correr si hay fechas rotas o columnas sin título)"><i class="ti ti-tool"></i> Reparar headers</button>
       <button class="bs" onclick="closeModal('modal-cfg')">Cancelar</button>
     </div>
   </div>
@@ -1102,11 +1103,25 @@ const DB = {
 };
 
 // Coerciones de tipos (Sheets devuelve todo como string)
+function normFecha(v) {
+  if(!v) return '';
+  // Sheets puede devolver Date serializada como "2026-05-27T03:00:00.000Z" o similar
+  const s = String(v);
+  // Si ya es YYYY-MM-DD, ok
+  if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  // Si es ISO con hora, tomar solo la parte de fecha
+  const iso = s.match(/^(\d{4}-\d{2}-\d{2})/);
+  if(iso) return iso[1];
+  // Si es objeto Date convertido a string, parsear y formatear
+  const d = new Date(v);
+  if(!isNaN(d)) return d.toISOString().slice(0,10);
+  return s;
+}
 function coerce_gasto(r) {
-  return { ...r, id:Number(r.id), monto:Number(r.monto), cuotas:Number(r.cuotas)||1 };
+  return { ...r, id:Number(r.id), monto:Number(r.monto), cuotas:Number(r.cuotas)||1, fecha:normFecha(r.fecha) };
 }
 function coerce_ingreso(r) {
-  return { ...r, id:Number(r.id), monto:Number(r.monto), rec:Number(r.rec)||0 };
+  return { ...r, id:Number(r.id), monto:Number(r.monto), rec:Number(r.rec)||0, fecha:normFecha(r.fecha) };
 }
 function coerce_inversion(r) {
   return { ...r, id:Number(r.id), qty:Number(r.qty), pe:Number(r.pe), pa:Number(r.pa) };
@@ -3706,11 +3721,12 @@ async function confirmImport(){
   if(selIngresos.length) partes.push(`${selIngresos.length} ingreso${selIngresos.length>1?'s':''}`);
   toast(`✓ Importados: ${partes.join(' y ')}`);
 
-  // Persistir en Google Sheets (en paralelo para mayor velocidad)
-  await Promise.all([
-    ...nuevosGastos.map(r=>DB.insert('Gastos',r)),
-    ...nuevosIngresos.map(r=>DB.insert('Ingresos',r))
-  ]);
+  // Persistir en Google Sheets de forma SECUENCIAL para evitar IDs duplicados
+  // (Apps Script calcula maxId en cada insert — si van en paralelo todos leen el mismo maxId)
+  if(DB.enabled()){
+    for(const r of nuevosGastos)   await DB.insert('Gastos',r);
+    for(const r of nuevosIngresos) await DB.insert('Ingresos',r);
+  }
 }
 async function saveCfg(){
   cfg.u1=document.getElementById('s-u1').value||'VH';
@@ -3833,6 +3849,16 @@ function openModal(id){
     document.getElementById('in-imputacion').value='';
   }
   document.getElementById(id).classList.add('open');
+}
+async function fixHeadersSheets(){
+  if(!DB.enabled()){toast('Configurá el Apps Script primero',true);return;}
+  const r=await DB.call('fixHeaders',null,{});
+  if(r?.ok){
+    const cambios=r.log?.filter(l=>l.includes('→')).length||0;
+    toast(cambios>0?`✓ ${cambios} header${cambios>1?'s':''} reparado${cambios>1?'s':''}. Recargá desde Sheets.`:'✓ Todos los headers están correctos');
+  } else {
+    toast('Error al reparar headers',true);
+  }
 }
 async function recargarDesdeSheets(){
   closeModal('modal-cfg');

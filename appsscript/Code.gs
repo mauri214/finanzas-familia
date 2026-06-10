@@ -68,6 +68,7 @@ function handleRequest(e) {
       case 'initSheets':    result = initSheets();             break;
       case 'callClaude':    result = callClaude(body);         break;
       case 'deleteCat':     result = deleteCat(body.nombre);   break;
+      case 'fixHeaders':    result = fixHeaders();             break;
       default:
         result = { ok: false, error: 'Acción desconocida: ' + action };
     }
@@ -450,6 +451,30 @@ function callClaude(body) {
   } catch (err) {
     return { ok: false, error: 'Error al llamar a Claude: ' + err.message };
   }
+}
+
+// ============================================================
+// REPARAR HEADERS FALTANTES (ej: imputacion agregado después de initSheets)
+// ============================================================
+
+function fixHeaders() {
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var log = [];
+  Object.keys(HEADERS).forEach(function(name) {
+    var sh = ss.getSheetByName(name);
+    if (!sh) { log.push('No existe: ' + name); return; }
+    var expected = HEADERS[name];
+    var actual = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
+    expected.forEach(function(h, i) {
+      var cellVal = actual[i] ? String(actual[i]).trim() : '';
+      if (cellVal !== h) {
+        sh.getRange(1, i + 1).setValue(h);
+        sh.getRange(1, i + 1).setBackground('#1D9E75').setFontColor('#ffffff').setFontWeight('bold');
+        log.push(name + '[' + i + ']: "' + cellVal + '" → "' + h + '"');
+      }
+    });
+  });
+  return { ok: true, log: log };
 }
 
 // ============================================================
