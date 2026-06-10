@@ -69,6 +69,7 @@ function handleRequest(e) {
       case 'callClaude':    result = callClaude(body);         break;
       case 'deleteCat':     result = deleteCat(body.nombre);   break;
       case 'fixHeaders':    result = fixHeaders();             break;
+      case 'fixDupIds':     result = fixDupIds(body.sheet);   break;
       default:
         result = { ok: false, error: 'Acción desconocida: ' + action };
     }
@@ -451,6 +452,31 @@ function callClaude(body) {
   } catch (err) {
     return { ok: false, error: 'Error al llamar a Claude: ' + err.message };
   }
+}
+
+// ============================================================
+// REPARAR IDs DUPLICADOS — reasigna IDs secuenciales únicos
+// ============================================================
+
+function fixDupIds(sheetName) {
+  var sh = getSheet(sheetName);
+  var rows = sh.getDataRange().getValues();
+  if (rows.length <= 1) return { ok: true, fixed: 0 };
+  var headers = rows[0];
+  var idCol = headers.indexOf('id');
+  if (idCol === -1) return { ok: false, error: 'No tiene columna id' };
+  var fixed = 0;
+  var nextId = 1;
+  // Asignar IDs secuenciales únicos a todas las filas
+  for (var i = 1; i < rows.length; i++) {
+    var currentId = Number(rows[i][idCol]);
+    if (currentId !== nextId) {
+      sh.getRange(i + 1, idCol + 1).setValue(nextId);
+      fixed++;
+    }
+    nextId++;
+  }
+  return { ok: true, fixed: fixed, total: rows.length - 1 };
 }
 
 // ============================================================

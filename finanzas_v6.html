@@ -808,7 +808,8 @@ input:checked+.proy-slider:before{transform:translateX(16px)}
     <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap">
       <button class="bp" onclick="saveCfg()">Guardar</button>
       <button class="bs" onclick="recargarDesdeSheets()"><i class="ti ti-refresh"></i> Recargar desde Sheets</button>
-      <button class="bs" onclick="fixHeadersSheets()" title="Repara columnas faltantes en el Sheet (correr si hay fechas rotas o columnas sin título)"><i class="ti ti-tool"></i> Reparar headers</button>
+      <button class="bs" onclick="fixHeadersSheets()" title="Repara columnas faltantes en el Sheet"><i class="ti ti-tool"></i> Reparar headers</button>
+      <button class="bs" onclick="fixDupIdsSheets()" title="Repara IDs duplicados en Gastos e Ingresos (correr si desaparecen ítems al borrar)"><i class="ti ti-database-cog"></i> Reparar IDs</button>
       <button class="bs" onclick="closeModal('modal-cfg')">Cancelar</button>
     </div>
   </div>
@@ -2771,7 +2772,7 @@ function renderGastos(){
         ${Object.entries(porUser).map(([u,v])=>`<span>${u}: <b>${fa(v)}</b></span>`).join('')}
       </div>`;
   }
-  document.getElementById('gastos-tbody').innerHTML=data.length?data.map(g=>`<tr>
+  document.getElementById('gastos-tbody').innerHTML=data.length?data.map((g,_i)=>{const _gi=gastos.indexOf(g);return`<tr>
     <td style="color:var(--text3);white-space:nowrap">${fd(g.fecha)}${(()=>{if(!g.imputacion)return'';const{y,m}=getMesImp(g);const fd2=new Date(g.fecha);if(fd2.getFullYear()===y&&fd2.getMonth()===m)return'';return`<br><span style="font-size:9px;background:var(--warn-l);color:var(--warn);border-radius:3px;padding:1px 4px;font-weight:700">→${MONTHS[m].slice(0,3)}</span>`;})()}</td>
     <td style="font-weight:600">${g.desc}${g.notas?'<br><span style="font-size:10px;color:var(--text3)">'+g.notas+'</span>':''}</td>
     <td><span class="pill" style="background:${CAT[g.cat]?.color||'#888'}22;color:${CAT[g.cat]?.color||'#888'}">${g.cat}</span></td>
@@ -2781,9 +2782,9 @@ function renderGastos(){
     <td class="r neg" style="font-weight:700">${fa(g.monto)}</td>
     <td class="r" style="white-space:nowrap">
       <button class="edit-btn" onclick="openEditGasto(${g.id})" title="Editar"><i class="ti ti-edit"></i></button>
-      <button class="del-btn" onclick="delGasto(${g.id})" title="Eliminar"><i class="ti ti-trash"></i></button>
+      <button class="del-btn" onclick="delGasto(${_gi})" title="Eliminar"><i class="ti ti-trash"></i></button>
     </td>
-  </tr>`).join(''):`<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:20px">Sin gastos en este período</td></tr>`;
+  </tr>`}).join(''):`<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:20px">Sin gastos en este período</td></tr>`;
   document.getElementById('gastos-total').innerHTML=`Total: <b>${fa(total)}</b> · ${data.length} transacciones${extraHTML}`;
 }
 function fltG(f,btn){gFilter=f;document.querySelectorAll('#sec-gastos .tabs .tab').forEach(t=>t.classList.remove('active'));btn.classList.add('active');renderGastos()}
@@ -3543,8 +3544,12 @@ async function saveGasto(){
   toast('Gasto guardado');showSec('gastos');
   await DB.insert('Gastos',rec);
 }
-async function delGasto(id){
-  gastos=gastos.filter(g=>g.id!==id);
+async function delGasto(idx){
+  // Usar índice en el array para evitar borrar múltiples ítems con el mismo id (bug datos corruptos)
+  const g=gastos[idx];
+  if(!g) return;
+  const sheetId=g.id;
+  gastos.splice(idx,1);
   // Si la vista activa queda vacía pero hay más gastos, resetear filtro de usuario
   if(gastos.length>0 && gFilter!=='todos'){
     const vistaVacia=!gastos.some(g=>
@@ -3555,7 +3560,7 @@ async function delGasto(id){
     }
   }
   renderGastos();
-  await DB.remove('Gastos',id);
+  await DB.remove('Gastos',sheetId);
 }
 function openEditGasto(id){
   const g=gastos.find(g=>g.id===id);if(!g)return;
@@ -3849,6 +3854,22 @@ function openModal(id){
     document.getElementById('in-imputacion').value='';
   }
   document.getElementById(id).classList.add('open');
+}
+async function fixDupIdsSheets(){
+  if(!DB.enabled()){toast('Configurá el Apps Script primero',true);return;}
+  if(!confirm('¿Reparar IDs duplicados en Gastos e Ingresos?\nEsto reasigna IDs secuenciales únicos. No borra datos.')) return;
+  const [rg,ri]=await Promise.all([
+    DB.call('fixDupIds',null,{sheet:'Gastos'}),
+    DB.call('fixDupIds',null,{sheet:'Ingresos'})
+  ]);
+  const totalFixed=(rg?.fixed||0)+(ri?.fixed||0);
+  if(totalFixed>0){
+    toast(`✓ ${totalFixed} ID${totalFixed>1?'s':''} reparado${totalFixed>1?'s':''}. Recargando...`);
+    await DB.loadAll();
+    renderDash();renderGastos();renderIngresos();
+  } else {
+    toast('✓ No había IDs duplicados');
+  }
 }
 async function fixHeadersSheets(){
   if(!DB.enabled()){toast('Configurá el Apps Script primero',true);return;}
