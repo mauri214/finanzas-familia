@@ -309,17 +309,26 @@ function callClaude(body) {
       /^\d{1,2}\/[a-záéíóúñ]{3,4}\b/i.test(l.trim());          // 5/mar, 26/abr (Mercado Pago)
     var tieneMonto = /\d{1,3}[.,]\d{3}/.test(l);
     var esRuido = /^[_\s\-]+$/.test(l.trim()) ||               // líneas de guiones/guión bajo
-      /SU PAGO EN PESOS|SALDO ANTERIOR|SALDO ACTUAL|PAGO M[IÍ]NIMO|TOTAL CON|SUBTOTAL|IMPUESTO|PERCEP|BONIF\./.test(l.toUpperCase());
+      /SU PAGO EN PESOS|SALDO ANTERIOR|SALDO ACTUAL|PAGO M[IÍ]NIMO|TOTAL CON|SUBTOTAL|BONIF\./.test(l.toUpperCase());
     return tieneFecha && tieneMonto && !esRuido;
   });
-  // Si encontramos líneas de transacción, usar solo esas
+  // Líneas de impuestos/intereses/percepciones que no tienen fecha propia
+  // (aparecen como cargo adicional en el extracto — deben incluirse como gastos)
+  var cargoLines = lineas.filter(function(l) {
+    var esCargo = /IMPUESTO|PERCEP|INTER[EÉ]S|CARGO FINANCIERO|I\.V\.A|IVA\s|SELLADO|TASA|RECARGO/.test(l.toUpperCase());
+    var tieneMontoCargo = /\d{1,3}[.,]\d{3}/.test(l) || /\d+[.,]\d{2}/.test(l);
+    var esRuidoCargo = /^[_\s\-]+$/.test(l.trim()) || /SALDO|TOTAL CON|SUBTOTAL/.test(l.toUpperCase());
+    return esCargo && tieneMontoCargo && !esRuidoCargo;
+  });
+  // Si encontramos líneas de transacción, usar solo esas (+ cargos sin fecha)
   if (transLines.length > 1) {
-    texto = 'Extracto bancario Argentina. Transacciones:\n' + transLines.join('\n');
+    var allLines = transLines.concat(cargoLines.filter(function(l){ return transLines.indexOf(l)===-1; }));
+    texto = 'Extracto bancario Argentina. Transacciones:\n' + allLines.join('\n');
   }
   // Limitar a 6000 chars
   texto = texto.slice(0, 6000);
 
-  var catGasto   = body.catGasto   || 'Supermercado,Transporte,Servicios,Salud,Educación,Hogar,Restaurantes,Entretenimiento,Ropa,Belleza/cuidado,Gustos personales,Regalos,Otros';
+  var catGasto   = body.catGasto   || 'Supermercado,Transporte,Servicios,Salud,Educación,Hogar,Restaurantes,Entretenimiento,Ropa,Belleza/cuidado,Gustos personales,Regalos,Impuestos y cargos,Otros';
   var catIngreso = body.catIngreso || 'Sueldo neto,Premio / bono,Aguinaldo,Negocio / freelance,Alquiler cobrado,Dividendos,Devolución,Otro';
   var patrones   = body.patrones   || '';
   var anio = new Date().getFullYear();
@@ -344,7 +353,9 @@ function callClaude(body) {
     '\nReglas:\n' +
     '- Débitos, compras, pagos → gasto\n' +
     '- Acreditaciones, haberes, transferencias recibidas → ingreso\n' +
-    '- Pagos de tarjeta y saldos anteriores → IGNORAR (no incluir)\n' +
+    '- Impuestos, percepciones, intereses, cargos financieros, IVA, sellado, tasas → gasto, categoría "Impuestos y cargos"\n' +
+    '  Aunque no tengan fecha propia, asignales la fecha de la transacción más cercana o la fecha del extracto\n' +
+    '- Pagos de tarjeta, saldos anteriores, totales del resumen → IGNORAR (no incluir)\n' +
     '- Fechas en formato YYYY-MM-DD:\n' +
     '  BBVA/BNA-MC "01-May-26"→"2026-05-01" | BNA-Visa "13.05.26"→"2026-05-13"\n' +
     '  Santa Fe "26 Mayo 05"→"2026-05-05" | MercadoPago "5/mar"→inferir año del documento\n' +
