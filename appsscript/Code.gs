@@ -7,12 +7,12 @@
 //   evitar CORS al llamar a la API de Anthropic desde el browser
 // ============================================================
 
-var SPREADSHEET_ID = 'REEMPLAZAR_CON_ID_DEL_SHEET';
+var SPREADSHEET_ID = '1IxTLG38x-Zr-JhTI0AU-VNCINtRQjJ6Ne6ErA0Yyrzs';
 
 // Token de seguridad — debe coincidir con el que configurás en la app
 // Generalo con: Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)
 // y pegalo también en el campo "Token" de Configuración en la app
-var API_TOKEN = 'REEMPLAZAR_CON_TOKEN_SECRETO';
+var API_TOKEN = 'ucspyuncxefg9gpszai1d';
 
 // Cabeceras por hoja — orden exacto de columnas en el Sheet
 var HEADERS = {
