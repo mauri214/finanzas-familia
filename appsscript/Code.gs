@@ -16,8 +16,8 @@ var API_TOKEN = 'ucspyuncxefg9gpszai1d';
 
 // Cabeceras por hoja — orden exacto de columnas en el Sheet
 var HEADERS = {
-  Gastos:       ['id','fecha','desc','cat','amb','quien','medio','cuotas','monto','notas','imputacion'],
-  Ingresos:     ['id','fecha','desc','tipo','quien','monto','rec','imputacion'],
+  Gastos:       ['id','fecha','desc','cat','amb','quien','medio','cuotas','monto','notas','imputacion','mon'],
+  Ingresos:     ['id','fecha','desc','tipo','quien','monto','rec','imputacion','mon'],
   Inversiones:  ['id','activo','tipo','plat','mon','qty','pe','pa','fe'],
   Metas:        ['id','nom','tipo','obj','act','fecha','color','done'],
   Deudas:       ['id','nom','tipo','cap','tna','plazo','pag','ent','own'],
@@ -368,6 +368,8 @@ function callClaude(body) {
     '  Santa Fe "26 Mayo 05"→"2026-05-05" | MercadoPago "5/mar"→inferir año del documento\n' +
     '  Año faltante: usar ' + anio + '\n' +
     '- Montos: número positivo sin símbolos ni puntos de miles (148033.24 no 148.033,24)\n' +
+    '- Moneda (campo "mon"): "ARS" por defecto. Usar "USD" si el monto está explícitamente en dólares\n' +
+    '  (indicadores: "U$S", "USD", "US$", "DOLAR", "DOLLAR", o el monto tiene un símbolo $ seguido de un número pequeño como $150.00 junto a texto "USD")\n' +
     '- Descripciones: máx 60 chars, sin nros de cupón ni prefijos * K\n' +
     '- Si no hay cuotas: cuotaActual=1, cuotasTotal=1\n\n' +
     'VERIFICACIÓN DE COHERENCIA (OBLIGATORIA):\n' +
@@ -381,9 +383,10 @@ function callClaude(body) {
     'Retornar SOLO este JSON (sin texto extra ni markdown):\n' +
     '{"totalAPagar":148033.24,"sumaCalculada":147900.00,"advertenciaCoherencia":null,' +
     '"transacciones":[' +
-    '{"fecha":"2026-05-09","descripcion":"Carrefour Rosario","monto":148033.24,"tipo":"gasto","categoriaSugerida":"Supermercado","cuotaActual":1,"cuotasTotal":1,"patronReconocido":false},' +
-    '{"fecha":"2026-05-09","descripcion":"Percepción IIBB","monto":1200.00,"tipo":"gasto","categoriaSugerida":"Impuestos y cargos","cuotaActual":1,"cuotasTotal":1,"patronReconocido":false},' +
-    '{"fecha":"2026-05-09","descripcion":"Bonificación bienvenida","monto":500.00,"tipo":"bonificacion","categoriaSugerida":"Otros","cuotaActual":1,"cuotasTotal":1,"patronReconocido":false}' +
+    '{"fecha":"2026-05-09","descripcion":"Carrefour Rosario","monto":148033.24,"tipo":"gasto","categoriaSugerida":"Supermercado","cuotaActual":1,"cuotasTotal":1,"patronReconocido":false,"mon":"ARS"},' +
+    '{"fecha":"2026-05-09","descripcion":"Percepción IIBB","monto":1200.00,"tipo":"gasto","categoriaSugerida":"Impuestos y cargos","cuotaActual":1,"cuotasTotal":1,"patronReconocido":false,"mon":"ARS"},' +
+    '{"fecha":"2026-05-09","descripcion":"Netflix USD","monto":15.99,"tipo":"gasto","categoriaSugerida":"Suscripciones","cuotaActual":1,"cuotasTotal":1,"patronReconocido":false,"mon":"USD"},' +
+    '{"fecha":"2026-05-09","descripcion":"Bonificación bienvenida","monto":500.00,"tipo":"bonificacion","categoriaSugerida":"Otros","cuotaActual":1,"cuotasTotal":1,"patronReconocido":false,"mon":"ARS"}' +
     ']}';
 
   var payload = JSON.stringify({

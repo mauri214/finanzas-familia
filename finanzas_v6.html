@@ -115,6 +115,14 @@ textarea{resize:vertical}
 /* TAGS */
 .tag{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:800;border:1.5px solid}
 .tg-green{background:var(--acc-l);color:var(--acc);border-color:var(--acc-m)}
+.mon-sel{display:flex;gap:0;border:1.5px solid var(--border);border-radius:var(--r);overflow:hidden;height:36px}
+.mon-sel button{flex:1;border:none;background:var(--bg2);color:var(--text2);font-size:11px;font-weight:700;cursor:pointer;transition:background .15s,color .15s;padding:0 10px}
+.mon-sel button.active{background:var(--acc);color:var(--ivory)}
+.mon-badge-usd{background:#FEF3C7;color:#92400E;border:1px solid #FCD34D;border-radius:4px;font-size:9px;font-weight:800;padding:1px 5px;letter-spacing:.4px}
+.mon-badge-ars{background:var(--acc-l);color:var(--acc);border:1px solid var(--acc-m);border-radius:4px;font-size:9px;font-weight:800;padding:1px 5px;letter-spacing:.4px}
+.tot-mon-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:4px}
+.tot-mon-item{font-size:12px;color:var(--text2);display:flex;align-items:center;gap:4px}
+.tot-mon-item b{font-size:14px;font-weight:800}
 .tg-blue{background:var(--blue-l);color:var(--blue);border-color:var(--blue)}
 .tg-red{background:var(--dan-l);color:var(--dan);border-color:var(--dan)}
 .tg-warn{background:var(--warn-l);color:var(--warn);border-color:var(--warn)}
@@ -629,7 +637,7 @@ input:checked+.proy-slider:before{transform:translateX(16px)}
         <thead><tr>
           <th style="width:28px"><input type="checkbox" id="chk-all" onchange="selectAllImp(this.checked)" title="Seleccionar todos"></th>
           <th class="imp-thead-tipo">Tipo</th>
-          <th>Fecha</th><th>Descripción</th><th>Categoría / Tipo ingreso</th><th>Ámbito</th><th>Usuario</th><th style="min-width:60px">Cuotas</th><th style="min-width:90px">Imputar a</th><th class="r">Monto</th><th></th>
+          <th>Fecha</th><th>Descripción</th><th>Categoría / Tipo ingreso</th><th>Ámbito</th><th>Usuario</th><th>Mon</th><th style="min-width:60px">Cuotas</th><th style="min-width:90px">Imputar a</th><th class="r">Monto</th><th></th>
         </tr></thead>
         <tbody id="imp-tbody"></tbody>
       </table></div>
@@ -760,7 +768,8 @@ input:checked+.proy-slider:before{transform:translateX(16px)}
   <div class="card">
     <div class="fr t4">
       <div class="fg" style="grid-column:span 2"><div class="fl">Descripción *</div><input id="g-desc" placeholder="ej. Supermercado Coto"/></div>
-      <div class="fg"><div class="fl">Monto (ARS) *</div><input id="g-monto" type="number" placeholder="0"/></div>
+      <div class="fg"><div class="fl">Monto *</div><input id="g-monto" type="number" placeholder="0"/></div>
+      <div class="fg"><div class="fl">Moneda</div><select id="g-mon"><option value="ARS">ARS $</option><option value="USD">USD U$S</option></select></div>
       <div class="fg"><div class="fl">Fecha</div><input id="g-fecha" type="date"/></div>
     </div>
     <div class="fr t4">
@@ -837,7 +846,7 @@ input:checked+.proy-slider:before{transform:translateX(16px)}
 <div class="modal-bg" id="modal-ingreso">
   <div class="modal">
     <div class="modal-title">Agregar ingreso <button class="cx" onclick="closeModal('modal-ingreso')">×</button></div>
-    <div class="fr"><div class="fg"><div class="fl">Descripción *</div><input id="in-desc" placeholder="ej. Sueldo neto junio"/></div><div class="fg"><div class="fl">Monto (ARS) *</div><input id="in-monto" type="number" placeholder="0"/></div></div>
+    <div class="fr"><div class="fg"><div class="fl">Descripción *</div><input id="in-desc" placeholder="ej. Sueldo neto junio"/></div><div class="fg"><div class="fl">Monto *</div><input id="in-monto" type="number" placeholder="0"/></div><div class="fg"><div class="fl">Moneda</div><select id="in-mon"><option value="ARS">ARS $</option><option value="USD">USD U$S</option></select></div></div>
     <div class="fr"><div class="fg"><div class="fl">Tipo</div><select id="in-tipo"></select></div><div class="fg"><div class="fl">¿De quién?</div><select id="in-quien"><option value="u1">VH</option><option value="u2">MG</option><option value="fam">Conjunto</option></select></div></div>
     <div class="fr"><div class="fg"><div class="fl">Fecha</div><input id="in-fecha" type="date"/></div><div class="fg"><div class="fl">¿Recurrente?</div><select id="in-rec"><option value="0">No</option><option value="1">Sí, mensual</option></select></div></div>
     <div class="fr"><div class="fg"><div class="fl">Imputar al mes <span style="font-size:10px;color:var(--text3);font-weight:500">(vacío = usar mes de la fecha)</span></div><input id="in-imputacion" type="month"/></div></div>
@@ -851,7 +860,8 @@ input:checked+.proy-slider:before{transform:translateX(16px)}
     <input type="hidden" id="eg-id"/>
     <div class="fr t4">
       <div class="fg" style="grid-column:span 2"><div class="fl">Descripción *</div><input id="eg-desc"/></div>
-      <div class="fg"><div class="fl">Monto (ARS) *</div><input id="eg-monto" type="number"/></div>
+      <div class="fg"><div class="fl">Monto *</div><input id="eg-monto" type="number"/></div>
+      <div class="fg"><div class="fl">Moneda</div><select id="eg-mon"><option value="ARS">ARS $</option><option value="USD">USD U$S</option></select></div>
       <div class="fg"><div class="fl">Fecha</div><input id="eg-fecha" type="date"/></div>
     </div>
     <div class="fr t4">
@@ -1138,11 +1148,13 @@ function normFecha(v) {
   return s;
 }
 function coerce_gasto(r) {
-  return { ...r, id:Number(r.id), monto:Number(r.monto), cuotas:Number(r.cuotas)||1, fecha:normFecha(r.fecha) };
+  return { ...r, id:Number(r.id), monto:Number(r.monto), cuotas:Number(r.cuotas)||1, fecha:normFecha(r.fecha), mon:r.mon||'ARS' };
 }
 function coerce_ingreso(r) {
-  return { ...r, id:Number(r.id), monto:Number(r.monto), rec:Number(r.rec)||0, fecha:normFecha(r.fecha) };
+  return { ...r, id:Number(r.id), monto:Number(r.monto), rec:Number(r.rec)||0, fecha:normFecha(r.fecha), mon:r.mon||'ARS' };
 }
+function toARS(monto, mon){ return mon==='USD' ? monto*(cfg.tc||1) : monto; }
+function monBadge(mon){ return mon==='USD'?'<span class="mon-badge-usd">USD</span>':'<span class="mon-badge-ars">ARS</span>'; }
 function coerce_inversion(r) {
   return { ...r, id:Number(r.id), qty:Number(r.qty), pe:Number(r.pe), pa:Number(r.pa) };
 }
@@ -2080,12 +2092,12 @@ function renderHealthScore(hs){
 
 function renderDashMes(){
   const mg=getMG(),ing=getIng();
-  const ingT=ing.reduce((a,i)=>a+i.monto,0);
-  const ingU1=ing.filter(i=>i.quien==='u1').reduce((a,i)=>a+i.monto,0);
-  const ingU2=ing.filter(i=>i.quien==='u2').reduce((a,i)=>a+i.monto,0);
-  const gFam=mg.filter(g=>g.amb==='fam').reduce((a,g)=>a+g.monto,0);
-  const gU1=mg.filter(g=>g.amb==='u1').reduce((a,g)=>a+g.monto,0);
-  const gU2=mg.filter(g=>g.amb==='u2').reduce((a,g)=>a+g.monto,0);
+  const ingT=ing.reduce((a,i)=>a+toARS(i.monto,i.mon||'ARS'),0);
+  const ingU1=ing.filter(i=>i.quien==='u1').reduce((a,i)=>a+toARS(i.monto,i.mon||'ARS'),0);
+  const ingU2=ing.filter(i=>i.quien==='u2').reduce((a,i)=>a+toARS(i.monto,i.mon||'ARS'),0);
+  const gFam=mg.filter(g=>g.amb==='fam').reduce((a,g)=>a+toARS(g.monto,g.mon||'ARS'),0);
+  const gU1=mg.filter(g=>g.amb==='u1').reduce((a,g)=>a+toARS(g.monto,g.mon||'ARS'),0);
+  const gU2=mg.filter(g=>g.amb==='u2').reduce((a,g)=>a+toARS(g.monto,g.mon||'ARS'),0);
   const gT=gFam+gU1+gU2;
   const bal=ingT-gT;
   const cDeu=deudas.reduce((a,d)=>a+cuotaMensual(d),0);
@@ -2479,12 +2491,12 @@ function renderDashAnual(){
   const getYearData=yr=>{
     const ing=ingresos.filter(i=>getMesImp(i).y===yr);
     const gst=gastos.filter(g=>getMesImp(g).y===yr);
-    const ingT=ing.reduce((a,i)=>a+i.monto,0);
-    const gstT=gst.reduce((a,g)=>a+g.monto,0);
+    const ingT=ing.reduce((a,i)=>a+toARS(i.monto,i.mon||'ARS'),0);
+    const gstT=gst.reduce((a,g)=>a+toARS(g.monto,g.mon||'ARS'),0);
     const bal=ingT-gstT;
-    const gFam=gst.filter(g=>g.amb==='fam').reduce((a,g)=>a+g.monto,0);
-    const gU1=gst.filter(g=>g.amb==='u1').reduce((a,g)=>a+g.monto,0);
-    const gU2=gst.filter(g=>g.amb==='u2').reduce((a,g)=>a+g.monto,0);
+    const gFam=gst.filter(g=>g.amb==='fam').reduce((a,g)=>a+toARS(g.monto,g.mon||'ARS'),0);
+    const gU1=gst.filter(g=>g.amb==='u1').reduce((a,g)=>a+toARS(g.monto,g.mon||'ARS'),0);
+    const gU2=gst.filter(g=>g.amb==='u2').reduce((a,g)=>a+toARS(g.monto,g.mon||'ARS'),0);
     return {ingT,gstT,bal,gFam,gU1,gU2};
   };
   const data=years.map(yr=>({yr,...getYearData(yr)}));
@@ -2576,10 +2588,10 @@ function renderDistCfg(){
 }
 function renderDistResult(){
   const ing=getIng(),mg=getMG();
-  const ingT=ing.reduce((a,i)=>a+i.monto,0);
-  const gFam=mg.filter(g=>g.amb==='fam').reduce((a,g)=>a+g.monto,0);
-  const gU1r=mg.filter(g=>g.amb==='u1').reduce((a,g)=>a+g.monto,0);
-  const gU2r=mg.filter(g=>g.amb==='u2').reduce((a,g)=>a+g.monto,0);
+  const ingT=ing.reduce((a,i)=>a+toARS(i.monto,i.mon||'ARS'),0);
+  const gFam=mg.filter(g=>g.amb==='fam').reduce((a,g)=>a+toARS(g.monto,g.mon||'ARS'),0);
+  const gU1r=mg.filter(g=>g.amb==='u1').reduce((a,g)=>a+toARS(g.monto,g.mon||'ARS'),0);
+  const gU2r=mg.filter(g=>g.amb==='u2').reduce((a,g)=>a+toARS(g.monto,g.mon||'ARS'),0);
   let rows=[];
   if(distMode==='inv_primero'){
     const resto=ingT-cfg.distInv-gFam;
@@ -2728,10 +2740,15 @@ function renderIngresos(){
   const ing=aplicarFiltroDates(ingAll,ingFiltro);
   updateFiltroUI('ing',ingFiltro,ingAll.length,ing.length);
 
-  const t=ing.reduce((a,i)=>a+i.monto,0);
-  const u1=ing.filter(i=>i.quien==='u1').reduce((a,i)=>a+i.monto,0);
-  const u2=ing.filter(i=>i.quien==='u2').reduce((a,i)=>a+i.monto,0);
-  const fam=ing.filter(i=>i.quien==='fam').reduce((a,i)=>a+i.monto,0);
+  const ingARS=ing.filter(i=>(i.mon||'ARS')==='ARS');
+  const ingUSD=ing.filter(i=>(i.mon||'ARS')==='USD');
+  const tARS=ingARS.reduce((a,i)=>a+i.monto,0);
+  const tUSD=ingUSD.reduce((a,i)=>a+i.monto,0);
+  const t=ing.reduce((a,i)=>a+toARS(i.monto,i.mon||'ARS'),0);
+  const u1=ing.filter(i=>i.quien==='u1').reduce((a,i)=>a+toARS(i.monto,i.mon||'ARS'),0);
+  const u2=ing.filter(i=>i.quien==='u2').reduce((a,i)=>a+toARS(i.monto,i.mon||'ARS'),0);
+  const fam=ing.filter(i=>i.quien==='fam').reduce((a,i)=>a+toARS(i.monto,i.mon||'ARS'),0);
+  const monSubtit=tUSD>0?`<div class="tot-mon-row"><span class="tot-mon-item"><span class="mon-badge-ars">ARS</span> <b>${fa(tARS)}</b></span><span class="tot-mon-item"><span class="mon-badge-usd">USD</span> <b>U$S ${tUSD.toLocaleString('es-AR',{minimumFractionDigits:2})}</b></span><span class="tot-mon-item" style="color:var(--text3);font-size:11px">≈ ${fa(t)} en ARS (TC ${(cfg.tc||1).toLocaleString('es-AR')})</span></div>`:'';
   const pd=promDiario(ing,ingFiltro);
   const tc={'Sueldo neto':'#1D9E75','Premio / bono':'#EF9F27','Aguinaldo':'#378ADD','Negocio / freelance':'#7F77DD','Alquiler cobrado':'#D85A30','Dividendos':'#E24B4A','Otro':'#888780'};
   // Totales por tipo
@@ -2740,7 +2757,7 @@ function renderIngresos(){
     `<div class="met" style="border-left:3px solid ${tc[tp]||'#888'}"><div class="ml">${tp}</div><div class="mv" style="color:${tc[tp]||'#888'}">${fa(v)}</div></div>`
   ).join('');
   document.getElementById('ing-metrics').innerHTML=`
-    <div class="met green"><div class="ml">Total</div><div class="mv">${fa(t)}</div></div>
+    <div class="met green"><div class="ml">Total (en ARS)</div><div class="mv">${fa(t)}</div>${monSubtit}</div>
     <div class="met"><div class="ml">${cfg.u1}</div><div class="mv" style="color:var(--acc)">${fa(u1)}</div></div>
     <div class="met"><div class="ml">${cfg.u2}</div><div class="mv" style="color:var(--purp)">${fa(u2)}</div></div>
     <div class="met gray"><div class="ml">Conjunto</div><div class="mv">${fa(fam)}</div></div>
@@ -2748,13 +2765,14 @@ function renderIngresos(){
     ${ingFiltro.modo!=='todos'?tipoRows:''}`;
   const rows=ing.sort((a,b)=>b.fecha.localeCompare(a.fecha));
   document.getElementById('ing-table').innerHTML=rows.length?`<table>
-    <thead><tr><th>Fecha</th><th>Descripción</th><th>Tipo</th><th>Recurrente</th><th class="r">Quién</th><th class="r">Monto</th><th></th></tr></thead>
+    <thead><tr><th>Fecha</th><th>Descripción</th><th>Tipo</th><th>Recurrente</th><th class="r">Quién</th><th class="r">Mon</th><th class="r">Monto</th><th></th></tr></thead>
     <tbody>${rows.map(i=>`<tr>
       <td style="color:var(--text3)">${fd(i.fecha)}</td><td style="font-weight:600">${i.desc}</td>
       <td><span class="pill" style="background:${tc[i.tipo]||'#888'}22;color:${tc[i.tipo]||'#888'}">${i.tipo}</span></td>
       <td>${i.rec?'<span class="tag tg-green">Mensual</span>':'<span class="tag tg-gray">Único</span>'}</td>
       <td class="r"><span class="pill ${oc(i.quien)}">${uN(i.quien)}</span></td>
-      <td class="r pos" style="font-weight:700">${fa(i.monto)}</td>
+      <td class="r">${monBadge(i.mon||'ARS')}</td>
+      <td class="r pos" style="font-weight:700">${(i.mon||'ARS')==='USD'?'U$S '+i.monto.toLocaleString('es-AR',{minimumFractionDigits:2}):fa(i.monto)}</td>
       <td class="r"><button class="del-btn" onclick="delIng(${i.id})"><i class="ti ti-trash"></i></button></td>
     </tr>`).join('')}</tbody></table>`
     :`<div style="text-align:center;color:var(--text3);padding:24px;font-size:13px">Sin ingresos en este período</div>`;
@@ -2780,7 +2798,9 @@ function renderGastos(){
   const data=aplicarFiltroDates(dataAll,gastFiltro);
   updateFiltroUI('gast',gastFiltro,dataAll.length,data.length);
   data.sort((a,b)=>b.fecha.localeCompare(a.fecha));
-  const total=data.reduce((a,g)=>a+g.monto,0);
+  const total=data.reduce((a,g)=>a+toARS(g.monto,g.mon||'ARS'),0);
+  const totalARS=data.filter(g=>(g.mon||'ARS')==='ARS').reduce((a,g)=>a+g.monto,0);
+  const totalUSD=data.filter(g=>(g.mon||'ARS')==='USD').reduce((a,g)=>a+g.monto,0);
   const pd=promDiario(data,gastFiltro);
   // Subtotales por categoría y usuario (solo si hay filtro activo)
   let extraHTML='';
@@ -2808,13 +2828,14 @@ function renderGastos(){
     <td><span class="pill ${g.amb==='fam'?'tg-blue':'tg-purp'}">${g.amb==='fam'?'Familiar':g.amb==='u1'?cfg.u1:cfg.u2}</span></td>
     <td style="color:var(--text3)">${(()=>{if(g.cuotas<=1)return'—';const m=String(g.notas||'').match(/Cuota\s*(\d+)\/(\d+)/i);return m?`<span title="Cuota ${m[1]} de ${m[2]}">${m[1]}/${m[2]}</span>`:`${g.cuotas} ctas`})()}</td>
     <td><span class="pill ${oc(g.quien==='comp'?'fam':g.quien)}">${uN(g.quien==='comp'?'fam':g.quien)}</span></td>
-    <td class="r neg" style="font-weight:700">${fa(g.monto)}</td>
+    <td class="r neg" style="font-weight:700">${monBadge(g.mon||'ARS')} ${(g.mon||'ARS')==='USD'?'U$S '+g.monto.toLocaleString('es-AR',{minimumFractionDigits:2}):fa(g.monto)}</td>
     <td class="r" style="white-space:nowrap">
       <button class="edit-btn" onclick="openEditGasto(${g.id})" title="Editar"><i class="ti ti-edit"></i></button>
       <button class="del-btn" onclick="delGasto(${_gi})" title="Eliminar"><i class="ti ti-trash"></i></button>
     </td>
   </tr>`}).join(''):`<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:20px">Sin gastos en este período</td></tr>`;
-  document.getElementById('gastos-total').innerHTML=`Total: <b>${fa(total)}</b> · ${data.length} transacciones${extraHTML}`;
+  const monGastSubtit=totalUSD>0?` <span class="tot-mon-item"><span class="mon-badge-ars">ARS</span> <b>${fa(totalARS)}</b></span> <span class="tot-mon-item"><span class="mon-badge-usd">USD</span> <b>U$S ${totalUSD.toLocaleString('es-AR',{minimumFractionDigits:2})}</b></span> <span style="font-size:11px;color:var(--text3)">(≈ ${fa(total)} ARS)</span>`:'';
+  document.getElementById('gastos-total').innerHTML=`Total: <b>${fa(total)}</b>${totalUSD>0?' (ARS eq.)':''} · ${data.length} transacciones${monGastSubtit?'<div class="tot-mon-row">'+monGastSubtit+'</div>':''}${extraHTML}`;
 }
 function fltG(f,btn){gFilter=f;document.querySelectorAll('#sec-gastos .tabs .tab').forEach(t=>t.classList.remove('active'));btn.classList.add('active');renderGastos()}
 function fillCatFilter(){
@@ -2828,10 +2849,10 @@ function renderAjuste(){
   const [y,m]=mesVal.split('-').map(Number);
   const mes=gastos.filter(g=>{const{y:gy,m:gm}=getMesImp(g);return gy===y&&gm===m-1&&g.amb==='fam'});
   if(!mes.length){document.getElementById('ajuste-result').innerHTML='<div style="font-size:12px;color:var(--text3);padding:8px 0">No hay gastos familiares en ese mes.</div>';return}
-  const totalFam=mes.reduce((a,g)=>a+g.monto,0);
-  const pagU1=mes.filter(g=>g.quien==='u1').reduce((a,g)=>a+g.monto,0);
-  const pagU2=mes.filter(g=>g.quien==='u2').reduce((a,g)=>a+g.monto,0);
-  const pagConj=mes.filter(g=>g.quien==='comp').reduce((a,g)=>a+g.monto,0);
+  const totalFam=mes.reduce((a,g)=>a+toARS(g.monto,g.mon||'ARS'),0);
+  const pagU1=mes.filter(g=>g.quien==='u1').reduce((a,g)=>a+toARS(g.monto,g.mon||'ARS'),0);
+  const pagU2=mes.filter(g=>g.quien==='u2').reduce((a,g)=>a+toARS(g.monto,g.mon||'ARS'),0);
+  const pagConj=mes.filter(g=>g.quien==='comp').reduce((a,g)=>a+toARS(g.monto,g.mon||'ARS'),0);
   const neto=totalFam-pagConj;
   const debeada=neto/2;
   const u1pago=pagU1;
@@ -3182,6 +3203,7 @@ function buildImpPending(transacciones, metaDatos){
     );
     // Las bonificaciones se importan como gastos de monto negativo (reducen el total)
     const tipoFinal=esBonif?'bonificacion':(esGasto?'gasto':'ingreso');
+    const moneda=(t.mon||t.moneda||'ARS').toUpperCase()==='USD'?'USD':'ARS';
     return{
       fecha:t.fecha||td(),
       desc:(t.descripcion||'').slice(0,80),
@@ -3192,6 +3214,7 @@ function buildImpPending(transacciones, metaDatos){
       quien:owner==='fam'?((esGasto||esBonif)?'comp':owner):owner,
       medio,cuotas:cuotasTotal,cuotaActual,sel:true,
       imputacion:impMes,
+      mon:moneda,
       patronReconocido:!!patronMap[(t.descripcion||'').toLowerCase().trim()]
     };
   }).filter(t=>t.monto>0);
@@ -3209,9 +3232,12 @@ function renderImpPreview(){
   const nGastos=selItems.filter(p=>p.tipo==='gasto').length;
   const nBonif=selItems.filter(p=>p.tipo==='bonificacion').length;
   const nIng=selItems.filter(p=>p.tipo==='ingreso').length;
-  const totalGastos=selItems.filter(p=>p.tipo==='gasto').reduce((a,p)=>a+p.monto,0);
-  const totalBonif=selItems.filter(p=>p.tipo==='bonificacion').reduce((a,p)=>a+p.monto,0);
-  const totalIngresos=selItems.filter(p=>p.tipo==='ingreso').reduce((a,p)=>a+p.monto,0);
+  const gastosItems=selItems.filter(p=>p.tipo==='gasto');
+  const totalGastos=gastosItems.reduce((a,p)=>a+toARS(p.monto,p.mon||'ARS'),0);
+  const totalGastosARS=gastosItems.filter(p=>(p.mon||'ARS')==='ARS').reduce((a,p)=>a+p.monto,0);
+  const totalGastosUSD=gastosItems.filter(p=>(p.mon||'ARS')==='USD').reduce((a,p)=>a+p.monto,0);
+  const totalBonif=selItems.filter(p=>p.tipo==='bonificacion').reduce((a,p)=>a+toARS(p.monto,p.mon||'ARS'),0);
+  const totalIngresos=selItems.filter(p=>p.tipo==='ingreso').reduce((a,p)=>a+toARS(p.monto,p.mon||'ARS'),0);
   const totalNetoGastos=totalGastos-totalBonif; // gastos reales descontando bonificaciones
   const neto=totalIngresos-totalNetoGastos;
   document.getElementById('imp-count-lbl').textContent=`${sel} de ${todos} seleccionadas`;
@@ -3241,8 +3267,9 @@ function renderImpPreview(){
   if(totEl) totEl.innerHTML=`
     <div class="imp-tot-item">
       <span class="imp-tot-lbl">Total gastos</span>
-      <span class="imp-tot-val neg">${fa(totalGastos)}</span>
+      <span class="imp-tot-val neg">${fa(totalGastos)}${totalGastosUSD>0?' (ARS eq.)':''}</span>
       <span style="font-size:10px;color:var(--text3)">${nGastos} transacciones</span>
+      ${totalGastosUSD>0?`<div class="tot-mon-row" style="margin-top:3px"><span class="tot-mon-item"><span class="mon-badge-ars">ARS</span> <b>${fa(totalGastosARS)}</b></span><span class="tot-mon-item"><span class="mon-badge-usd">USD</span> <b>U$S ${totalGastosUSD.toLocaleString('es-AR',{minimumFractionDigits:2})}</b></span></div>`:''}
     </div>
     ${nBonif?`<div class="imp-tot-item">
       <span class="imp-tot-lbl">Bonificaciones / reembolsos</span>
@@ -3326,9 +3353,13 @@ function renderImpPreview(){
       <td><select onchange="impPending[${i}].cat=this.value" style="font-size:11px;padding:3px">${catOpts}</select></td>
       <td>${colAmbito}</td>
       <td>${colQuien}</td>
+      <td><select class="imp-sel-col" onchange="impPending[${i}].mon=this.value">
+        <option value="ARS"${(p.mon||'ARS')==='ARS'?' selected':''}>ARS</option>
+        <option value="USD"${(p.mon||'ARS')==='USD'?' selected':''}>USD</option>
+      </select></td>
       <td>${colCuotas}</td>
       <td><input type="month" value="${p.imputacion||''}" onchange="impPending[${i}].imputacion=this.value" style="font-size:11px;padding:3px;width:110px;border:1px solid var(--border);border-radius:6px" title="Mes al que se imputa este movimiento"/></td>
-      <td class="r ${esBonif?'pos':esGasto?'neg':'pos'}" style="font-weight:700">${esBonif?'−':''}${fa(p.monto)}</td>
+      <td class="r ${esBonif?'pos':esGasto?'neg':'pos'}" style="font-weight:700">${esBonif?'−':''}${(p.mon||'ARS')==='USD'?'U$S '+p.monto.toLocaleString('es-AR',{minimumFractionDigits:2}):fa(p.monto)}</td>
       <td><button class="del-btn" onclick="impPending.splice(${i},1);renderImpPreview()" title="Eliminar fila"><i class="ti ti-trash"></i></button></td>
     </tr>`;
   }).join('');
@@ -3567,7 +3598,7 @@ async function saveGasto(){
   const monto=parseFloat(document.getElementById('g-monto').value);
   if(!desc||!monto){toast('Completá descripción y monto',true);return}
   const imp=document.getElementById('g-imputacion').value;
-  const rec={id:nid++,fecha:document.getElementById('g-fecha').value||td(),desc,cat:document.getElementById('g-cat').value,amb:document.getElementById('g-ambito').value,quien:document.getElementById('g-quien').value,medio:document.getElementById('g-medio').value,cuotas:parseInt(document.getElementById('g-cuotas').value)||1,monto,notas:document.getElementById('g-notas').value,imputacion:imp||''};
+  const rec={id:nid++,fecha:document.getElementById('g-fecha').value||td(),desc,cat:document.getElementById('g-cat').value,amb:document.getElementById('g-ambito').value,quien:document.getElementById('g-quien').value,medio:document.getElementById('g-medio').value,cuotas:parseInt(document.getElementById('g-cuotas').value)||1,monto,notas:document.getElementById('g-notas').value,imputacion:imp||'',mon:document.getElementById('g-mon').value||'ARS'};
   gastos.push(rec);
   ['g-desc','g-monto','g-notas'].forEach(id=>document.getElementById(id).value='');
   toast('Gasto guardado');showSec('gastos');
@@ -3604,6 +3635,7 @@ function openEditGasto(id){
   document.getElementById('eg-medio').value=g.medio;
   document.getElementById('eg-notas').value=g.notas||'';
   document.getElementById('eg-imputacion').value=g.imputacion||'';
+  document.getElementById('eg-mon').value=g.mon||'ARS';
   openModal('modal-edit-gasto');
 }
 async function updateGasto(){
@@ -3612,7 +3644,7 @@ async function updateGasto(){
   const desc=document.getElementById('eg-desc').value.trim();
   const monto=parseFloat(document.getElementById('eg-monto').value);
   if(!desc||!monto){toast('Completá descripción y monto',true);return}
-  Object.assign(g,{desc,monto,fecha:document.getElementById('eg-fecha').value,cat:document.getElementById('eg-cat').value,amb:document.getElementById('eg-ambito').value,quien:document.getElementById('eg-quien').value,cuotas:parseInt(document.getElementById('eg-cuotas').value)||1,medio:document.getElementById('eg-medio').value,notas:document.getElementById('eg-notas').value,imputacion:document.getElementById('eg-imputacion').value||''});
+  Object.assign(g,{desc,monto,fecha:document.getElementById('eg-fecha').value,cat:document.getElementById('eg-cat').value,amb:document.getElementById('eg-ambito').value,quien:document.getElementById('eg-quien').value,cuotas:parseInt(document.getElementById('eg-cuotas').value)||1,medio:document.getElementById('eg-medio').value,notas:document.getElementById('eg-notas').value,imputacion:document.getElementById('eg-imputacion').value||'',mon:document.getElementById('eg-mon').value||'ARS'});
   closeModal('modal-edit-gasto');toast('Gasto actualizado');renderGastos();
   await DB.update('Gastos',id,g);
 }
@@ -3621,7 +3653,7 @@ async function saveIng(){
   const monto=parseFloat(document.getElementById('in-monto').value);
   if(!desc||!monto){toast('Completá descripción y monto',true);return}
   const imp=document.getElementById('in-imputacion').value;
-  const rec={id:nid++,fecha:document.getElementById('in-fecha').value||td(),desc,tipo:document.getElementById('in-tipo').value,quien:document.getElementById('in-quien').value,monto,rec:parseInt(document.getElementById('in-rec').value),imputacion:imp||''};
+  const rec={id:nid++,fecha:document.getElementById('in-fecha').value||td(),desc,tipo:document.getElementById('in-tipo').value,quien:document.getElementById('in-quien').value,monto,rec:parseInt(document.getElementById('in-rec').value),imputacion:imp||'',mon:document.getElementById('in-mon').value||'ARS'};
   ingresos.push(rec);
   closeModal('modal-ingreso');toast('Ingreso guardado');renderIngresos();
   await DB.insert('Ingresos',rec);
@@ -3732,7 +3764,8 @@ async function confirmImport(){
     monto:p.tipo==='bonificacion'?-p.monto:p.monto,
     cuotas:p.cuotas||1,
     notas:p.tipo==='bonificacion'?'Bonificación/reembolso importado':(p.cuotas>1?`Cuota ${p.cuotaActual||1}/${p.cuotas}`:'Importado'),
-    imputacion:p.imputacion||''
+    imputacion:p.imputacion||'',
+    mon:p.mon||'ARS'
   }));
   nuevosGastos.forEach(r=>gastos.push(r));
 
@@ -3741,7 +3774,8 @@ async function confirmImport(){
   const nuevosIngresos=selIngresos.map(p=>({
     id:nid++,fecha:p.fecha,desc:p.desc,
     tipo:p.cat,   // cat aquí contiene el tipo de ingreso (Sueldo neto, Bono, etc.)
-    quien:p.quien||'comp',monto:p.monto,rec:0,imputacion:p.imputacion||''
+    quien:p.quien||'comp',monto:p.monto,rec:0,imputacion:p.imputacion||'',
+    mon:p.mon||'ARS'
   }));
   nuevosIngresos.forEach(r=>ingresos.push(r));
 
