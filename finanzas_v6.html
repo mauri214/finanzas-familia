@@ -11,11 +11,13 @@
  *          búsqueda global Cmd+K, gráficos SVG nativos, simulador ¿Qué pasa si?
  * Fecha: 08/06/2026
 -->
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
+  --logo-primary:#3A8293;--logo-secondary:#86B778;
   --bg:#F4F1EC;--bg2:#EAE6DF;--bg3:#F4F1EC;
   --white:#FDFCF9;
   --acc:#003A2F;--acc-m:#005C48;--acc-l:#D6E8E4;--acc-d:#001F19;
@@ -39,6 +41,11 @@ body{font-family:var(--font);color:var(--text);background:var(--bg);min-height:1
 /* TOPBAR */
 .topbar{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;border-bottom:2px solid var(--ivory);background:var(--carbon);position:sticky;top:0;z-index:40}
 .logo{font-size:13px;font-weight:800;color:var(--ivory);display:flex;align-items:center;gap:8px;letter-spacing:2px;text-transform:uppercase}
+.logo-svg{width:32px;height:32px;flex-shrink:0;filter:drop-shadow(0 1px 2px rgba(0,0,0,.25));transition:transform .2s}
+.logo:hover .logo-svg{transform:scale(1.08)}
+.logo-svg .lp{fill:none;stroke:var(--logo-primary);stroke-width:4.5;stroke-linejoin:round;stroke-linecap:round;transition:stroke .3s}
+.logo-svg .ls{fill:var(--logo-secondary);transition:fill .3s}
+.logo-svg .ls-stroke{fill:none;stroke:var(--logo-secondary);stroke-width:3.5;stroke-linecap:round;stroke-linejoin:round;transition:stroke .3s}
 .avatars{display:flex;gap:6px;align-items:center}
 .av{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;cursor:pointer;border:2px solid}
 .av1{background:var(--acc);color:var(--ivory);border-color:var(--ivory)}
@@ -411,7 +418,19 @@ input:checked+.proy-slider:before{transform:translateX(16px)}
 <div class="app">
 
 <div class="topbar">
-  <div class="logo"><i class="ti ti-chart-dots-3"></i><span id="app-title">HouseholdCap</span></div>
+  <div class="logo">
+    <svg class="logo-svg" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-label="HouseholdCap">
+      <!-- Silueta de casa -->
+      <path class="lp" d="M32 7 L57 27 L53 27 L53 57 L11 57 L11 27 L7 27 Z"/>
+      <!-- Monedas apiladas -->
+      <ellipse class="ls" cx="31" cy="50" rx="9" ry="3.5"/>
+      <ellipse class="ls" cx="31" cy="46" rx="9" ry="3.5"/>
+      <ellipse class="ls" cx="31" cy="42" rx="9" ry="3.5"/>
+      <!-- Flecha ascendente -->
+      <path class="ls-stroke" d="M31 38 L31 23 M31 23 L24.5 30 M31 23 L37.5 30"/>
+    </svg>
+    <span id="app-title">HouseholdCap</span>
+  </div>
   <div class="avatars">
     <button class="tc-chip" id="tc-chip" onclick="actualizarTC()" title="Cotizaciones dólar en tiempo real">
       <i class="ti ti-currency-dollar" style="font-size:13px"></i><span id="tc-chip-val">TC $<span id="tc-chip-num">—</span></span>
@@ -1754,7 +1773,8 @@ const PALETAS=[
   {
     id:'aston',nombre:'Aston Martin',etiq:'Default',tipo:'premium',
     preview:['#0A0A0A','#003A2F','#F5F0E8'],
-    vars:{'--bg':'#F4F1EC','--bg2':'#EAE6DF','--bg3':'#F4F1EC','--white':'#FDFCF9',
+    vars:{'--logo-primary':'#3A8293','--logo-secondary':'#86B778',
+      '--bg':'#F4F1EC','--bg2':'#EAE6DF','--bg3':'#F4F1EC','--white':'#FDFCF9',
       '--acc':'#003A2F','--acc-m':'#005C48','--acc-l':'#D6E8E4','--acc-d':'#001F19',
       '--ivory':'#F5F0E8','--ivory-d':'#8A8078','--ivory-l':'#FAF7F2',
       '--carbon':'#0A0A0A','--border':'#C8C0B0','--border2':'#A89880',
@@ -1763,7 +1783,8 @@ const PALETAS=[
   {
     id:'rose',nombre:'Rose Petal',etiq:'Femenina',tipo:'femenina',
     preview:['#2D1B24','#C4617F','#FFF8FA'],
-    vars:{'--bg':'#FBF5F7','--bg2':'#F3E8ED','--bg3':'#FBF5F7','--white':'#FFF8FA',
+    vars:{'--logo-primary':'#9B4F6A','--logo-secondary':'#F0A0C0',
+      '--bg':'#FBF5F7','--bg2':'#F3E8ED','--bg3':'#FBF5F7','--white':'#FFF8FA',
       '--acc':'#9B4F6A','--acc-m':'#C4617F','--acc-l':'#F8DDED','--acc-d':'#6B2845',
       '--ivory':'#F9EFF3','--ivory-d':'#9A7080','--ivory-l':'#FEF5F8',
       '--carbon':'#2D1B24','--border':'#E8CED8','--border2':'#D4A8BC',
@@ -1772,7 +1793,8 @@ const PALETAS=[
   {
     id:'botanical',nombre:'Botanical',etiq:'Femenina',tipo:'femenina',
     preview:['#1F2A22','#6B9470','#FDFCF8'],
-    vars:{'--bg':'#F7F4EE','--bg2':'#EDE7DC','--bg3':'#F7F4EE','--white':'#FDFCF8',
+    vars:{'--logo-primary':'#5A7A5E','--logo-secondary':'#A8D4A0',
+      '--bg':'#F7F4EE','--bg2':'#EDE7DC','--bg3':'#F7F4EE','--white':'#FDFCF8',
       '--acc':'#5A7A5E','--acc-m':'#6B9470','--acc-l':'#D8EDDA','--acc-d':'#2E4C32',
       '--ivory':'#F5F0E6','--ivory-d':'#8A8270','--ivory-l':'#FAF7F0',
       '--carbon':'#1F2A22','--border':'#CCBFA8','--border2':'#B8A890',
@@ -1781,7 +1803,8 @@ const PALETAS=[
   {
     id:'navy',nombre:'Navy Steel',etiq:'Masculina',tipo:'masculina',
     preview:['#0D1B2A','#2952A3','#FAFBFD'],
-    vars:{'--bg':'#F2F4F7','--bg2':'#E4E9F0','--bg3':'#F2F4F7','--white':'#FAFBFD',
+    vars:{'--logo-primary':'#1E3A8A','--logo-secondary':'#60A5FA',
+      '--bg':'#F2F4F7','--bg2':'#E4E9F0','--bg3':'#F2F4F7','--white':'#FAFBFD',
       '--acc':'#1B3A6B','--acc-m':'#2952A3','--acc-l':'#D0DCEF','--acc-d':'#0D1E40',
       '--ivory':'#EEF2F8','--ivory-d':'#7080A0','--ivory-l':'#F5F7FB',
       '--carbon':'#0D1B2A','--border':'#C0CCE0','--border2':'#9AAACA',
@@ -1790,7 +1813,8 @@ const PALETAS=[
   {
     id:'cognac',nombre:'Slate & Cognac',etiq:'Masculina',tipo:'masculina',
     preview:['#1A1814','#A04E3C','#FDFAF7'],
-    vars:{'--bg':'#F5F1ED','--bg2':'#EDE6DE','--bg3':'#F5F1ED','--white':'#FDFAF7',
+    vars:{'--logo-primary':'#334155','--logo-secondary':'#94A3B8',
+      '--bg':'#F5F1ED','--bg2':'#EDE6DE','--bg3':'#F5F1ED','--white':'#FDFAF7',
       '--acc':'#7A3B2E','--acc-m':'#A04E3C','--acc-l':'#F0DDD8','--acc-d':'#4A2018',
       '--ivory':'#F4EDE6','--ivory-d':'#8A7268','--ivory-l':'#FAF6F2',
       '--carbon':'#1A1814','--border':'#CCC0B0','--border2':'#B0988A',
@@ -1799,7 +1823,8 @@ const PALETAS=[
   {
     id:'midnight',nombre:'Midnight',etiq:'Oscuro',tipo:'oscuro',
     preview:['#0F0F1A','#9D5CF0','#252236'],
-    vars:{'--bg':'#1E1B2E','--bg2':'#16132A','--bg3':'#1E1B2E','--white':'#252236',
+    vars:{'--logo-primary':'#FFFFFF','--logo-secondary':'#34D399',
+      '--bg':'#1E1B2E','--bg2':'#16132A','--bg3':'#1E1B2E','--white':'#252236',
       '--acc':'#7C3AED','--acc-m':'#9D5CF0','--acc-l':'#3D2870','--acc-d':'#5A20C8',
       '--ivory':'#E8E4F4','--ivory-d':'#9080C4','--ivory-l':'#F0EDF8',
       '--carbon':'#0F0F1A','--border':'#3A3460','--border2':'#504A80',
@@ -1808,7 +1833,8 @@ const PALETAS=[
   {
     id:'sand',nombre:'Sand & Terra',etiq:'Unisex',tipo:'unisex',
     preview:['#2A1F14','#D97840','#FDF9F4'],
-    vars:{'--bg':'#F5EFE6','--bg2':'#EDE3D4','--bg3':'#F5EFE6','--white':'#FDF9F4',
+    vars:{'--logo-primary':'#EA580C','--logo-secondary':'#FBBF24',
+      '--bg':'#F5EFE6','--bg2':'#EDE3D4','--bg3':'#F5EFE6','--white':'#FDF9F4',
       '--acc':'#C4622D','--acc-m':'#D97840','--acc-l':'#FADFCC','--acc-d':'#8B3A18',
       '--ivory':'#F4EAD8','--ivory-d':'#8A7060','--ivory-l':'#FAF4EC',
       '--carbon':'#2A1F14','--border':'#D0C0A8','--border2':'#B8A088',
@@ -1817,7 +1843,8 @@ const PALETAS=[
   {
     id:'ocean',nombre:'Ocean Depth',etiq:'Unisex',tipo:'unisex',
     preview:['#0C2D3A','#0891B2','#F8FCFF'],
-    vars:{'--bg':'#F0F9FF','--bg2':'#E0F2FE','--bg3':'#F0F9FF','--white':'#F8FCFF',
+    vars:{'--logo-primary':'#3A8293','--logo-secondary':'#34D399',
+      '--bg':'#F0F9FF','--bg2':'#E0F2FE','--bg3':'#F0F9FF','--white':'#F8FCFF',
       '--acc':'#0E7490','--acc-m':'#0891B2','--acc-l':'#CAEDF5','--acc-d':'#083D4E',
       '--ivory':'#E8F5FA','--ivory-d':'#5090A8','--ivory-l':'#F2FAFD',
       '--carbon':'#0C2D3A','--border':'#A8D8E8','--border2':'#80B8D0',
@@ -1826,7 +1853,8 @@ const PALETAS=[
   {
     id:'obsidian',nombre:'Obsidian Gold',etiq:'Premium',tipo:'premium',
     preview:['#0A0A0A','#B8960C','#FDFCF8'],
-    vars:{'--bg':'#F2F0EC','--bg2':'#E8E4DC','--bg3':'#F2F0EC','--white':'#FDFCF8',
+    vars:{'--logo-primary':'#FBBF24','--logo-secondary':'#86B778',
+      '--bg':'#F2F0EC','--bg2':'#E8E4DC','--bg3':'#F2F0EC','--white':'#FDFCF8',
       '--acc':'#8B6914','--acc-m':'#B8960C','--acc-l':'#F4E8C0','--acc-d':'#5A4208',
       '--ivory':'#F4EED8','--ivory-d':'#8A7840','--ivory-l':'#FAF6EA',
       '--carbon':'#0A0A0A','--border':'#C8C0A0','--border2':'#A89870',
@@ -1835,7 +1863,8 @@ const PALETAS=[
   {
     id:'fintech',nombre:'Fintech Blue',etiq:'Fintech',tipo:'fintech',
     preview:['#0A0F2A','#2563EB','#F8FAFF'],
-    vars:{'--bg':'#F0F4FF','--bg2':'#E5EDFF','--bg3':'#F0F4FF','--white':'#F8FAFF',
+    vars:{'--logo-primary':'#6D28D9','--logo-secondary':'#06B6D4',
+      '--bg':'#F0F4FF','--bg2':'#E5EDFF','--bg3':'#F0F4FF','--white':'#F8FAFF',
       '--acc':'#1D4ED8','--acc-m':'#2563EB','--acc-l':'#DBEAFE','--acc-d':'#1E3A8A',
       '--ivory':'#EEF2FF','--ivory-d':'#6070C0','--ivory-l':'#F5F8FF',
       '--carbon':'#0A0F2A','--border':'#BFCFEF','--border2':'#9AB0E0',
