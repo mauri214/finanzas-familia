@@ -1,6 +1,6 @@
 // ============================================================
 // HouseholdCap — Apps Script API
-// Versión: v5.1
+// Versión: v7
 // Hojas: Gastos, Ingresos, Inversiones, Metas, Deudas,
 //        Configuracion, Categorias
 // Novedad v5.1: acción callClaude — proxy server-side para
@@ -19,8 +19,8 @@ var HEADERS = {
   Gastos:       ['id','fecha','desc','cat','amb','quien','medio','cuotas','monto','notas','imputacion','mon'],
   Ingresos:     ['id','fecha','desc','tipo','quien','monto','rec','imputacion','mon'],
   Inversiones:  ['id','activo','tipo','plat','mon','qty','pe','pa','fe'],
-  Metas:        ['id','nom','tipo','obj','act','fecha','color','done'],
-  Deudas:       ['id','nom','tipo','cap','tna','plazo','pag','ent','own'],
+  Metas:        ['id','nom','tipo','obj','act','fecha','color','done','notas'],
+  Deudas:       ['id','nom','tipo','cap','tna','plazo','pag','ent','own','mon','uva_init'],
   Configuracion:['clave','valor'],
   Categorias:   ['nombre','color','amb']
 };
