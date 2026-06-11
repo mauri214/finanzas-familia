@@ -1434,7 +1434,7 @@ function buscarGlobal(q){
   if(rInv.length)html+=`<div class="busq-grupo">Inversiones (${rInv.length})</div>`+rInv.map(i=>`<div class="busq-item" onclick="closeModal('modal-busqueda');showSec('inversiones')">
     <span class="busq-desc">${hl(i.activo)}</span>
     <span class="busq-meta">${i.tipo} · ${i.plat}</span>
-    <span class="busq-val">${fa(toARSa(i))}</span>
+    <span class="busq-val">${fa(invToARSa(i))}</span>
   </div>`).join('');
   cont.innerHTML=html;
 }
@@ -1683,8 +1683,8 @@ function renderInvCharts(){
   // Calcular valor actual (sin snapshot): como punto "hoy"
   const hoy=new Date();
   const meHoy=hoy.getFullYear()+'-'+String(hoy.getMonth()+1).padStart(2,'0');
-  const valHoy=inversiones.reduce((a,i)=>a+toARSa(i),0);
-  const invHoy=inversiones.reduce((a,i)=>a+toARS(i),0);
+  const valHoy=inversiones.reduce((a,i)=>a+invToARSa(i),0);
+  const invHoy=inversiones.reduce((a,i)=>a+invToARS(i),0);
 
   // Si no hay snapshots, mostrar estado vacío con prompt
   if(!invSnapshots.length){
@@ -1974,8 +1974,8 @@ const fp=n=>(n>=0?'+':'')+n.toFixed(1)+'%';
 const td=()=>new Date().toISOString().slice(0,10);
 const uN=k=>k==='u1'?cfg.u1:k==='u2'?cfg.u2:k==='fam'||k==='comp'?'Conjunto':'—';
 const oc=k=>k==='fam'||k==='comp'?'own-fam':k==='u1'?'own-u1':'own-u2';
-const toARS=i=>i.mon==='USD'?i.qty*i.pe*cfg.tc:i.qty*i.pe;
-const toARSa=i=>i.mon==='USD'?i.qty*i.pa*cfg.tc:i.qty*i.pa;
+const invToARS=i=>i.mon==='USD'?i.qty*i.pe*cfg.tc:i.qty*i.pe;
+const invToARSa=i=>i.mon==='USD'?i.qty*i.pa*cfg.tc:i.qty*i.pa;
 // Formatea fecha YYYY-MM-DD → DD/MM/YY para mostrar en tablas
 const fd=s=>{if(!s||s.length<10)return s||'—';const[y,m,d]=s.split('-');return`${d}/${m}/${y.slice(2)}`};
 // getMesImp: devuelve {y, m(0-idx)} del mes de imputación — usa imputacion si existe, sino fecha
@@ -2146,8 +2146,8 @@ function renderDashMes(){
   const bal=ingT-gT;
   const cDeu=deudas.reduce((a,d)=>a+cuotaMensual(d),0);
   const cTarj=calcCuotasPend(curM,curY);
-  const tInv=inversiones.reduce((a,i)=>a+toARS(i),0);
-  const tAct=inversiones.reduce((a,i)=>a+toARSa(i),0);
+  const tInv=inversiones.reduce((a,i)=>a+invToARS(i),0);
+  const tAct=inversiones.reduce((a,i)=>a+invToARSa(i),0);
   const pnl=tAct-tInv;
   const sdoT=deudas.reduce((a,d)=>a+cuotaDet(d).saldo,0);
   const capT=deudas.reduce((a,d)=>a+d.cap,0);
@@ -2609,9 +2609,9 @@ function renderDashAnual(){
     ${yrTable()}
     <div class="sep">Inversiones acumuladas</div>
     <div class="g3">
-      <div class="met blue"><div class="ml">Total invertido</div><div class="mv">${fa(inversiones.reduce((a,i)=>a+toARS(i),0))}</div></div>
-      <div class="met green"><div class="ml">Valor actual</div><div class="mv">${fa(inversiones.reduce((a,i)=>a+toARSa(i),0))}</div></div>
-      ${(()=>{const pnlA=inversiones.reduce((a,i)=>a+toARSa(i)-toARS(i),0);return`<div class="met ${pnlA>=0?'green':'red'}"><div class="ml">PNL</div><div class="mv">${pnlA>=0?'+':''}${fa(pnlA)}</div></div>`})()}
+      <div class="met blue"><div class="ml">Total invertido</div><div class="mv">${fa(inversiones.reduce((a,i)=>a+invToARS(i),0))}</div></div>
+      <div class="met green"><div class="ml">Valor actual</div><div class="mv">${fa(inversiones.reduce((a,i)=>a+invToARSa(i),0))}</div></div>
+      ${(()=>{const pnlA=inversiones.reduce((a,i)=>a+invToARSa(i)-invToARS(i),0);return`<div class="met ${pnlA>=0?'green':'red'}"><div class="ml">PNL</div><div class="mv">${pnlA>=0?'+':''}${fa(pnlA)}</div></div>`})()}
     </div>`;
 }
 
@@ -3453,14 +3453,14 @@ function renderImportar(){
 function renderInv(){
   renderInvCharts();
   const tc=cfg.tc;
-  let tI=0,tA=0;inversiones.forEach(i=>{tI+=toARS(i);tA+=toARSa(i)});
+  let tI=0,tA=0;inversiones.forEach(i=>{tI+=invToARS(i);tA+=invToARSa(i)});
   const pnl=tA-tI;
   const cf=curCur==='USD'?1/tc:1;const sym=curCur==='USD'?'U$D ':'$';
   document.getElementById('inv-metrics').innerHTML=`
     <div class="met blue"><div class="ml">Total invertido</div><div class="mv">${sym}${Math.round(tI*cf).toLocaleString('es-AR')}</div></div>
     <div class="met ${pnl>=0?'green':'red'}"><div class="ml">Valor actual</div><div class="mv">${sym}${Math.round(tA*cf).toLocaleString('es-AR')}</div></div>
     <div class="met ${pnl>=0?'green':'red'}"><div class="ml">PNL</div><div class="mv">${pnl>=0?'+':''}${sym}${Math.round(Math.abs(pnl)*cf).toLocaleString('es-AR')}</div><div class="ms">${tI>0?fp(pnl/tI*100):'—'}</div></div>`;
-  const bT={};inversiones.forEach(i=>{const v=toARSa(i);bT[i.tipo]=(bT[i.tipo]||0)+v});
+  const bT={};inversiones.forEach(i=>{const v=invToARSa(i);bT[i.tipo]=(bT[i.tipo]||0)+v});
   const tC={'CEDEARs':'#378ADD','Bono':'#1D9E75','Crypto':'#EF9F27','FCI':'#7F77DD','Acción local':'#D85A30','Plazo fijo':'#888780'};
   const donaSegs=Object.entries(bT).map(([t,v])=>({label:t,color:tC[t]||'#888',value:v}));
   document.getElementById('inv-dist').innerHTML=`<div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
@@ -3468,7 +3468,7 @@ function renderInv(){
     <div class="chart-legend" style="flex-direction:column;gap:6px;font-size:12px">${donaSegs.map(s=>`<span><span class="legend-dot" style="background:${s.color}"></span>${s.label} <strong>${Math.round(s.value/tA*100)}%</strong> — ${fa(Math.round(s.value*cf))}</span>`).join('')}</div>
   </div>`;
   document.getElementById('inv-tbody').innerHTML=inversiones.map(i=>{
-    const inv=toARS(i),act=toARSa(i),pnl=act-inv,p=inv>0?pnl/inv*100:0;
+    const inv=invToARS(i),act=invToARSa(i),pnl=act-inv,p=inv>0?pnl/inv*100:0;
     const dPE=curCur==='USD'&&i.mon==='ARS'?i.pe/tc:i.mon==='USD'&&curCur==='ARS'?i.pe*tc:i.pe;
     const dPA=curCur==='USD'&&i.mon==='ARS'?i.pa/tc:i.mon==='USD'&&curCur==='ARS'?i.pa*tc:i.pa;
     return `<tr><td style="font-weight:700">${i.activo}</td><td><span class="pill tg-blue">${i.tipo}</span></td><td style="color:var(--text3);font-size:11px">${i.plat}</td><td><span class="pill tg-gray">${i.mon}</span></td>
