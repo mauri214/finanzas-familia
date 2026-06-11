@@ -903,7 +903,11 @@ input:checked+.proy-slider:before{transform:translateX(16px)}
     <div class="modal-title" id="modal-meta-title">Nueva meta <button class="cx" onclick="closeModal('modal-meta')">×</button></div>
     <input type="hidden" id="m-id"/>
     <div class="fr"><div class="fg"><div class="fl">Nombre *</div><input id="m-nom" placeholder="ej. Fondo de emergencia"/></div><div class="fg"><div class="fl">Tipo</div><select id="m-tipo"><option>Ahorro</option><option>Inversión</option><option>Gasto programado</option></select></div></div>
-    <div class="fr"><div class="fg"><div class="fl">Objetivo (ARS) *</div><input id="m-obj" type="number" placeholder="0"/></div><div class="fg"><div class="fl">Acumulado actual</div><input id="m-act" type="number" placeholder="0"/></div></div>
+    <div class="fr">
+      <div class="fg"><div class="fl">Moneda</div><select id="m-mon"><option value="ARS">ARS $</option><option value="USD">USD U$S</option></select></div>
+      <div class="fg"><div class="fl">Objetivo *</div><input id="m-obj" type="number" placeholder="0"/></div>
+      <div class="fg"><div class="fl">Acumulado actual</div><input id="m-act" type="number" placeholder="0"/></div>
+    </div>
     <div class="fr"><div class="fg"><div class="fl">Fecha límite</div><input id="m-fecha" type="date"/></div><div class="fg"><div class="fl">Color</div><select id="m-color"><option value="#1D9E75">Verde</option><option value="#378ADD">Azul</option><option value="#7F77DD">Violeta</option><option value="#EF9F27">Naranja</option><option value="#E24B4A">Rojo</option></select></div></div>
     <div class="fr"><div class="fg"><div class="fl">Notas</div><input id="m-notas" placeholder="opcional"/></div></div>
     <div style="display:flex;gap:6px;margin-top:10px"><button class="bp" id="m-save-btn" onclick="saveMeta()">Guardar</button><button class="bs" onclick="closeModal('modal-meta')">Cancelar</button></div>
@@ -1172,11 +1176,12 @@ function coerce_ingreso(r) {
 }
 function toARS(monto, mon){ return mon==='USD' ? monto*(cfg.tc||1) : monto; }
 function monBadge(mon){ return mon==='USD'?'<span class="mon-badge-usd">USD</span>':'<span class="mon-badge-ars">ARS</span>'; }
+function faMon(v,mon){ return mon==='USD'?'U$S '+v.toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2}):fa(v); }
 function coerce_inversion(r) {
   return { ...r, id:Number(r.id), qty:Number(r.qty), pe:Number(r.pe), pa:Number(r.pa) };
 }
 function coerce_meta(r) {
-  return { ...r, id:Number(r.id), obj:Number(r.obj), act:Number(r.act), done: r.done==='true'||r.done===true };
+  return { ...r, id:Number(r.id), obj:Number(r.obj), act:Number(r.act), done: r.done==='true'||r.done===true, mon:r.mon||'ARS' };
 }
 function coerce_deuda(r) {
   return { ...r, id:Number(r.id), cap:Number(r.cap), tna:Number(r.tna), plazo:Number(r.plazo), pag:Number(r.pag)||0, mon:r.mon||'ARS', uva_init:Number(r.uva_init)||0 };
@@ -3490,7 +3495,7 @@ function renderMetas(){
     const dias=Math.round((new Date(m.fecha)-new Date())/86400000);
     return `<div class="card">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
-        <div><div style="font-size:14px;font-weight:700">${m.nom}</div><div style="font-size:11px;color:var(--text3);margin-top:2px">${m.tipo} · ${dias>0?dias+' días restantes':'Vencida'}</div>${m.notas?`<div style="font-size:11px;color:var(--text2);margin-top:2px">${escHTML(m.notas)}</div>`:''}</div>
+        <div><div style="display:flex;align-items:center;gap:6px"><span style="font-size:14px;font-weight:700">${m.nom}</span>${m.mon==='USD'?'<span class="mon-badge-usd">USD</span>':'<span class="mon-badge-ars">ARS</span>'}</div><div style="font-size:11px;color:var(--text3);margin-top:2px">${m.tipo} · ${dias>0?dias+' días restantes':'Vencida'}</div>${m.notas?`<div style="font-size:11px;color:var(--text2);margin-top:2px">${escHTML(m.notas)}</div>`:''}</div>
         <div style="display:flex;gap:6px;align-items:center">
           <span style="font-size:18px;font-weight:700;color:${m.color}">${p}%</span>
           <button class="edit-btn" onclick="openEditMeta(${m.id})" title="Editar meta"><i class="ti ti-edit"></i></button>
@@ -3499,7 +3504,8 @@ function renderMetas(){
         </div>
       </div>
       <div class="bt" style="height:10px;margin-bottom:6px"><div class="bf" style="width:${p}%;background:${m.color}"></div></div>
-      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3)"><span>Acumulado: ${fa(m.act)}</span><span>Falta: ${fa(m.obj-m.act)}</span><span>Objetivo: ${fa(m.obj)}</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3)"><span>Acumulado: ${faMon(m.act,m.mon)}</span><span>Falta: ${faMon(m.obj-m.act,m.mon)}</span><span>Objetivo: ${faMon(m.obj,m.mon)}</span></div>
+      ${m.mon==='USD'?`<div style="font-size:10px;color:var(--text3);margin-top:2px">≈ ${fa(toARS(m.act,'USD'))} / ${fa(toARS(m.obj,'USD'))} ARS (TC ${(cfg.tc||0).toLocaleString('es-AR')})</div>`:''}
     </div>`;}).join('')||'<div class="card" style="text-align:center;color:var(--text3);padding:24px">No hay metas activas.</div>';
   document.getElementById('trofeos-sec').innerHTML=cumplidas.length?`
     <div class="sep">Trofeos logrados</div>
@@ -3778,6 +3784,7 @@ function openEditMeta(id){
   document.getElementById('m-id').value=m.id;
   document.getElementById('m-nom').value=m.nom;
   document.getElementById('m-tipo').value=m.tipo;
+  document.getElementById('m-mon').value=m.mon||'ARS';
   document.getElementById('m-obj').value=m.obj;
   document.getElementById('m-act').value=m.act;
   document.getElementById('m-fecha').value=m.fecha||'';
@@ -3791,7 +3798,7 @@ async function saveMeta(){
   const nom=document.getElementById('m-nom').value.trim();
   const obj=parseFloat(document.getElementById('m-obj').value);
   if(!nom||!obj){toast('Completá nombre y objetivo',true);return}
-  const rec={id:nid++,nom,tipo:document.getElementById('m-tipo').value,obj,act:parseFloat(document.getElementById('m-act').value)||0,fecha:document.getElementById('m-fecha').value||'2027-01-01',color:document.getElementById('m-color').value,notas:document.getElementById('m-notas').value,done:false};
+  const rec={id:nid++,nom,tipo:document.getElementById('m-tipo').value,mon:document.getElementById('m-mon').value||'ARS',obj,act:parseFloat(document.getElementById('m-act').value)||0,fecha:document.getElementById('m-fecha').value||'2027-01-01',color:document.getElementById('m-color').value,notas:document.getElementById('m-notas').value,done:false};
   metas.push(rec);
   closeModal('modal-meta');toast('Meta guardada');renderMetas();
   await DB.insert('Metas',rec);
@@ -3802,7 +3809,7 @@ async function updateMeta(){
   const nom=document.getElementById('m-nom').value.trim();
   const obj=parseFloat(document.getElementById('m-obj').value);
   if(!nom||!obj){toast('Completá nombre y objetivo',true);return}
-  Object.assign(m,{nom,tipo:document.getElementById('m-tipo').value,obj,act:parseFloat(document.getElementById('m-act').value)||0,fecha:document.getElementById('m-fecha').value||m.fecha,color:document.getElementById('m-color').value,notas:document.getElementById('m-notas').value});
+  Object.assign(m,{nom,tipo:document.getElementById('m-tipo').value,mon:document.getElementById('m-mon').value||'ARS',obj,act:parseFloat(document.getElementById('m-act').value)||0,fecha:document.getElementById('m-fecha').value||m.fecha,color:document.getElementById('m-color').value,notas:document.getElementById('m-notas').value});
   closeModal('modal-meta');toast('Meta actualizada');renderMetas();
   await DB.update('Metas',id,m);
 }
