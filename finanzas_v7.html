@@ -1305,26 +1305,38 @@ function semaforoHTML(cat,gastado){
 }
 
 // ======= v6: TIPO DE CAMBIO AUTOMÁTICO =======
-async function actualizarTC(){
+// fetchTC: obtiene cotizaciones y aplica cripto automáticamente. Si showModal=true abre el selector.
+async function fetchTC(showModal=false){
   const chip=document.getElementById('tc-chip');
   const numEl=document.getElementById('tc-chip-num');
-  if(chip){chip.disabled=true;}
-  if(numEl){numEl.textContent='…';}
+  if(chip) chip.disabled=true;
+  if(numEl) numEl.textContent='…';
   try{
     const res=await fetch('https://dolarapi.com/v1/dolares');
-    if(!res.ok)throw new Error('HTTP '+res.status);
+    if(!res.ok) throw new Error('HTTP '+res.status);
     const data=await res.json();
     renderTCModal(data);
-    openModal('modal-tc');
-    const blue=data.find(d=>d.casa?.toLowerCase()==='blue');
-    if(blue&&numEl)numEl.textContent=(blue.venta||blue.compra||'—').toLocaleString('es-AR');
+    // Aplicar cripto automáticamente
+    const cripto=data.find(d=>d.casa?.toLowerCase()==='cripto');
+    const valAuto=cripto?(cripto.venta||cripto.compra||0):0;
+    if(valAuto>0){
+      cfg.tc=valAuto;
+      const stcEl=document.getElementById('s-tc');
+      if(stcEl) stcEl.value=valAuto;
+      if(numEl) numEl.textContent=valAuto.toLocaleString('es-AR');
+      renderDash();
+      if(document.getElementById('sec-inversiones')?.classList.contains('active')) renderInv();
+    }
+    if(showModal) openModal('modal-tc');
   }catch(e){
-    toast('No se pudo obtener el TC. Revisá la conexión.',true);
-    if(numEl)numEl.textContent='—';
+    if(showModal) toast('No se pudo obtener el TC. Revisá la conexión.',true);
+    if(numEl) numEl.textContent=cfg.tc.toLocaleString('es-AR');
   }finally{
-    if(chip)chip.disabled=false;
+    if(chip) chip.disabled=false;
   }
 }
+// Click manual en el chip → abre modal para ver/cambiar si se quiere
+async function actualizarTC(){ await fetchTC(true); }
 function renderTCModal(data){
   const cont=document.getElementById('tc-rates');if(!cont)return;
   const info={blue:{icon:'💵',ord:1},oficial:{icon:'🏦',ord:2},bolsa:{icon:'📈',ord:3},contadoconliqui:{icon:'🌐',ord:4},cripto:{icon:'₿',ord:5}};
@@ -4240,11 +4252,12 @@ initPaleta();
 fillCatSel('g-cat');
 applyNames();
 updateIAConfigBtn();
-// Mostrar TC y UVA actuales en chips
+// Mostrar TC y UVA actuales en chips (valores locales mientras se actualizan)
 document.getElementById('tc-chip-num').textContent=cfg.tc.toLocaleString('es-AR');
 document.querySelectorAll('.uva-chip-val').forEach(el=>el.textContent=(cfg.uva||0).toLocaleString('es-AR',{minimumFractionDigits:2}));
 renderDash();
-// Fetch UVA en background al iniciar
+// Auto-fetch TC (cripto) y UVA al iniciar en background
+fetchTC(false);
 fetchUVA();
 (async()=>{
   if(DB.enabled()){
