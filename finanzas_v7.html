@@ -2200,15 +2200,13 @@ function renderDashMes(){
   const sfam=Object.entries(catsFam).sort((a,b)=>b[1]-a[1]);
   const mxF=sfam[0]?sfam[0][1]:1;
 
-  // SVG línea 12 meses
-  const lineData12=Array.from({length:12},(_,m)=>{
-    const y=curY-(m>curM?1:0);
-    const mm=((curM-m+12)%12);
-    return{m:mm,y};
-  }).reverse();
-  const ingLine=lineData12.map(({m,y})=>ingresos.filter(i=>{const{y:iy,m:im}=getMesImp(i);return iy===y&&im===m}).reduce((a,i)=>a+i.monto,0));
-  const gstLine=lineData12.map(({m,y})=>gastos.filter(g=>{const{y:gy,m:gm}=getMesImp(g);return gy===y&&gm===m}).reduce((a,g)=>a+g.monto,0));
-  const lineLabels=lineData12.map(({m})=>MONTHS[m].slice(0,3));
+  // SVG línea — meses Ene→Dic del año actual (posición = mes real, sin bug de timezone)
+  const ingLine=Array.from({length:12},(_,m)=>
+    ingresos.filter(i=>{const{y:iy,m:im}=getMesImp(i);return iy===curY&&im===m})
+            .reduce((a,i)=>a+toARS(i.monto,i.mon||'ARS'),0));
+  const gstLine=Array.from({length:12},(_,m)=>
+    gastos.filter(g=>{const{y:gy,m:gm}=getMesImp(g);return gy===curY&&gm===m})
+          .reduce((a,g)=>a+toARS(g.monto,g.mon||'ARS'),0));
 
   const svgLine=svgLinea(
     [{label:'Ingresos',color:'var(--acc-m)',data:ingLine},{label:'Gastos',color:'var(--dan)',data:gstLine}],
