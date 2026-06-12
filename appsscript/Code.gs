@@ -19,7 +19,7 @@ var HEADERS = {
   Gastos:       ['id','fecha','desc','cat','amb','quien','medio','cuotas','monto','notas','imputacion','mon'],
   Ingresos:     ['id','fecha','desc','tipo','quien','monto','rec','imputacion','mon'],
   Inversiones:  ['id','activo','tipo','plat','mon','qty','pe','pa','fe'],
-  Metas:        ['id','nom','tipo','obj','act','fecha','color','done','notas','mon'],
+  Metas:        ['id','nom','tipo','obj','act','fecha','color','done','notas','mon','importancia'],
   Deudas:       ['id','nom','tipo','cap','tna','plazo','pag','ent','own','mon','uva_init'],
   Configuracion:['clave','valor'],
   Categorias:   ['nombre','color','amb']
