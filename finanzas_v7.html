@@ -860,6 +860,18 @@ input:checked+.proy-slider:before{transform:translateX(16px)}
   </div>
 </div>
 
+<div class="modal-bg" id="modal-edit-ingreso">
+  <div class="modal">
+    <div class="modal-title">Editar ingreso <button class="cx" onclick="closeModal('modal-edit-ingreso')">×</button></div>
+    <input type="hidden" id="ei-id"/>
+    <div class="fr"><div class="fg"><div class="fl">Descripción *</div><input id="ei-desc"/></div><div class="fg"><div class="fl">Monto *</div><input id="ei-monto" type="number"/></div><div class="fg"><div class="fl">Moneda</div><select id="ei-mon"><option value="ARS">ARS $</option><option value="USD">USD U$S</option></select></div></div>
+    <div class="fr"><div class="fg"><div class="fl">Tipo</div><select id="ei-tipo"></select></div><div class="fg"><div class="fl">¿De quién?</div><select id="ei-quien"><option value="u1">VH</option><option value="u2">MG</option><option value="fam">Conjunto</option></select></div></div>
+    <div class="fr"><div class="fg"><div class="fl">Fecha</div><input id="ei-fecha" type="date"/></div><div class="fg"><div class="fl">¿Recurrente?</div><select id="ei-rec"><option value="0">No</option><option value="1">Sí, mensual</option></select></div></div>
+    <div class="fr"><div class="fg"><div class="fl">Imputar al mes</div><input id="ei-imputacion" type="month"/></div></div>
+    <div style="display:flex;gap:6px;margin-top:10px"><button class="bp" onclick="updateIng()"><i class="ti ti-check"></i>Guardar cambios</button><button class="bs" onclick="closeModal('modal-edit-ingreso')">Cancelar</button></div>
+  </div>
+</div>
+
 <div class="modal-bg" id="modal-edit-gasto">
   <div class="modal">
     <div class="modal-title">Editar gasto <button class="cx" onclick="closeModal('modal-edit-gasto')">×</button></div>
@@ -1984,12 +1996,16 @@ const invToARSa=i=>i.mon==='USD'?i.qty*i.pa*cfg.tc:i.qty*i.pa;
 // Formatea fecha YYYY-MM-DD → DD/MM/YY para mostrar en tablas
 const fd=s=>{if(!s||s.length<10)return s||'—';const[y,m,d]=s.split('-');return`${d}/${m}/${y.slice(2)}`};
 // getMesImp: devuelve {y, m(0-idx)} del mes de imputación — usa imputacion si existe, sino fecha
+// IMPORTANTE: parsear manualmente para evitar bug de timezone de JS (new Date('2026-06-01') = 31 mayo en UTC-3)
 function getMesImp(r){
   if(r.imputacion&&String(r.imputacion).length>=7){
     const [y,m]=String(r.imputacion).split('-').map(Number);
     return{y,m:m-1};
   }
-  const d=new Date(r.fecha);return{y:d.getFullYear(),m:d.getMonth()};
+  const s=String(r.fecha||'');
+  const parts=s.split('-');
+  if(parts.length>=2){return{y:Number(parts[0]),m:Number(parts[1])-1};}
+  const d=new Date(s);return{y:d.getFullYear(),m:d.getMonth()};
 }
 const getMG=()=>gastos.filter(g=>{const{y,m}=getMesImp(g);return m===curM&&y===curY});
 const getIng=()=>ingresos.filter(i=>{const{y,m}=getMesImp(i);return m===curM&&y===curY});
@@ -2822,7 +2838,10 @@ function renderIngresos(){
       <td class="r"><span class="pill ${oc(i.quien)}">${uN(i.quien)}</span></td>
       <td class="r">${monBadge(i.mon||'ARS')}</td>
       <td class="r pos" style="font-weight:700">${(i.mon||'ARS')==='USD'?'U$S '+i.monto.toLocaleString('es-AR',{minimumFractionDigits:2}):fa(i.monto)}</td>
-      <td class="r"><button class="del-btn" onclick="delIng(${i.id})"><i class="ti ti-trash"></i></button></td>
+      <td class="r" style="white-space:nowrap">
+        <button class="edit-btn" onclick="openEditIng(${i.id})" title="Editar"><i class="ti ti-edit"></i></button>
+        <button class="del-btn" onclick="delIng(${i.id})"><i class="ti ti-trash"></i></button>
+      </td>
     </tr>`).join('')}</tbody></table>`
     :`<div style="text-align:center;color:var(--text3);padding:24px;font-size:13px">Sin ingresos en este período</div>`;
   renderDistResult();
@@ -3685,8 +3704,9 @@ async function saveGasto(){
   const desc=document.getElementById('g-desc').value.trim();
   const monto=parseFloat(document.getElementById('g-monto').value);
   if(!desc||!monto){toast('Completá descripción y monto',true);return}
-  const imp=document.getElementById('g-imputacion').value;
-  const rec={id:nid++,fecha:document.getElementById('g-fecha').value||td(),desc,cat:document.getElementById('g-cat').value,amb:document.getElementById('g-ambito').value,quien:document.getElementById('g-quien').value,medio:document.getElementById('g-medio').value,cuotas:parseInt(document.getElementById('g-cuotas').value)||1,monto,notas:document.getElementById('g-notas').value,imputacion:imp||'',mon:document.getElementById('g-mon').value||'ARS'};
+  const gFecha=document.getElementById('g-fecha').value||td();
+  const imp=document.getElementById('g-imputacion').value||gFecha.slice(0,7);
+  const rec={id:nid++,fecha:gFecha,desc,cat:document.getElementById('g-cat').value,amb:document.getElementById('g-ambito').value,quien:document.getElementById('g-quien').value,medio:document.getElementById('g-medio').value,cuotas:parseInt(document.getElementById('g-cuotas').value)||1,monto,notas:document.getElementById('g-notas').value,imputacion:imp,mon:document.getElementById('g-mon').value||'ARS'};
   gastos.push(rec);
   ['g-desc','g-monto','g-notas'].forEach(id=>document.getElementById(id).value='');
   toast('Gasto guardado');showSec('gastos');
@@ -3740,14 +3760,46 @@ async function saveIng(){
   const desc=document.getElementById('in-desc').value.trim();
   const monto=parseFloat(document.getElementById('in-monto').value);
   if(!desc||!monto){toast('Completá descripción y monto',true);return}
-  const imp=document.getElementById('in-imputacion').value;
-  const rec={id:nid++,fecha:document.getElementById('in-fecha').value||td(),desc,tipo:document.getElementById('in-tipo').value,quien:document.getElementById('in-quien').value,monto,rec:parseInt(document.getElementById('in-rec').value),imputacion:imp||'',mon:document.getElementById('in-mon').value||'ARS'};
+  const inFecha=document.getElementById('in-fecha').value||td();
+  const imp=document.getElementById('in-imputacion').value||inFecha.slice(0,7);
+  const rec={id:nid++,fecha:inFecha,desc,tipo:document.getElementById('in-tipo').value,quien:document.getElementById('in-quien').value,monto,rec:parseInt(document.getElementById('in-rec').value),imputacion:imp,mon:document.getElementById('in-mon').value||'ARS'};
   ingresos.push(rec);
   closeModal('modal-ingreso');toast('Ingreso guardado');renderIngresos();
   await DB.insert('Ingresos',rec);
 }
+function openEditIng(id){
+  const ing=ingresos.find(i=>i.id===id);if(!ing)return;
+  document.getElementById('ei-id').value=ing.id;
+  document.getElementById('ei-desc').value=ing.desc;
+  document.getElementById('ei-monto').value=ing.monto;
+  document.getElementById('ei-mon').value=ing.mon||'ARS';
+  fillIngTipoSel('ei-tipo',ing.tipo);
+  document.getElementById('ei-quien').value=ing.quien;
+  document.getElementById('ei-fecha').value=ing.fecha;
+  document.getElementById('ei-rec').value=ing.rec||0;
+  document.getElementById('ei-imputacion').value=ing.imputacion||'';
+  openModal('modal-edit-ingreso');
+}
+async function updateIng(){
+  const id=parseInt(document.getElementById('ei-id').value);
+  const ing=ingresos.find(i=>i.id===id);if(!ing)return;
+  const desc=document.getElementById('ei-desc').value.trim();
+  const monto=parseFloat(document.getElementById('ei-monto').value);
+  if(!desc||!monto){toast('Completá descripción y monto',true);return}
+  Object.assign(ing,{
+    desc,monto,
+    mon:document.getElementById('ei-mon').value||'ARS',
+    tipo:document.getElementById('ei-tipo').value,
+    quien:document.getElementById('ei-quien').value,
+    fecha:document.getElementById('ei-fecha').value,
+    rec:parseInt(document.getElementById('ei-rec').value)||0,
+    imputacion:document.getElementById('ei-imputacion').value||''
+  });
+  closeModal('modal-edit-ingreso');toast('Ingreso actualizado');renderIngresos();renderDash();
+  await DB.update('Ingresos',id,ing);
+}
 async function delIng(id){
-  ingresos=ingresos.filter(i=>i.id!==id);renderIngresos();
+  ingresos=ingresos.filter(i=>i.id!==id);renderIngresos();renderDash();
   await DB.remove('Ingresos',id);
 }
 async function saveInv(){
