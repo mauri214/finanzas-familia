@@ -745,7 +745,7 @@ input:checked+.proy-slider:before{transform:translateX(16px)}
     <div class="sim-card">
       <div class="ct">¿Cuánto acumulás si ahorrás regularmente?</div>
       <div class="fr t3">
-        <div class="fg"><div class="fl">Ahorro mensual (ARS)</div><input id="sim-monto" type="number" placeholder="ej. 200000" oninput="calcSimAhorro()"/></div>
+        <div class="fg"><div class="fl" id="sim-monto-lbl">Ahorro mensual (ARS)</div><input id="sim-monto" type="number" placeholder="ej. 200000" oninput="calcSimAhorro()"/></div>
         <div class="fg"><div class="fl">TEM % (tasa mensual)</div><input id="sim-tem" type="number" step="0.5" placeholder="ej. 4.5" oninput="calcSimAhorro()"/></div>
         <div class="fg"><div class="fl">Plazo (meses)</div><input id="sim-plazo" type="number" placeholder="ej. 24" oninput="calcSimAhorro()"/></div>
       </div>
@@ -1556,6 +1556,9 @@ function setSimTab(tab,btn){
 }
 
 function renderSimulador(){
+  // Actualizar label de moneda en el input
+  const lbl=document.getElementById('sim-monto-lbl');
+  if(lbl) lbl.textContent=`Ahorro mensual (${curCur})`;
   // Poblar select de deudas
   const sel=document.getElementById('sim-deuda-sel');
   if(sel){
