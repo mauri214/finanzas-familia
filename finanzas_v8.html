@@ -690,6 +690,8 @@ input:checked+.proy-slider:before{transform:translateX(16px)}
     </div>
     <div class="snap-bar-actions">
       <button class="snap-btn secondary" onclick="openUpdPrecios()"><i class="ti ti-pencil"></i> Actualizar precios</button>
+      <button class="snap-btn secondary" onclick="openImpPrecios()"><i class="ti ti-file-import"></i> Importar precios</button>
+      <button class="snap-btn secondary" onclick="sincronizarBinance()"><i class="ti ti-cloud-download"></i> Binance</button>
       <button class="snap-btn" onclick="cerrarMes()"><i class="ti ti-device-floppy"></i> Cerrar mes</button>
     </div>
   </div>
@@ -1051,6 +1053,17 @@ input:checked+.proy-slider:before{transform:translateX(16px)}
   </div>
 </div>
 
+<!-- Modal: Importar precios desde texto de broker (IA) -->
+<div class="modal-bg" id="modal-imp-precios">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-title"><span><i class="ti ti-file-import"></i> Importar precios desde texto</span><button class="cx" onclick="closeModal('modal-imp-precios')">×</button></div>
+    <p style="font-size:12px;color:var(--text2);margin-bottom:10px">Pegá el texto de tu resumen de broker/exchange. La IA detecta el precio actual de cada activo y actualiza las posiciones que coincidan por ticker (no crea posiciones nuevas).</p>
+    <textarea id="imp-precios-text" style="height:120px" placeholder="MELI   5 nominales   $940.000&#10;AL30   1000   $620&#10;BTC   0.12   U$S 67.000"></textarea>
+    <div style="display:flex;gap:8px;margin-top:10px"><button class="bp" onclick="procesarImpPrecios()"><i class="ti ti-robot"></i> Interpretar y actualizar</button><button class="bs" onclick="closeModal('modal-imp-precios')">Cerrar</button></div>
+    <div id="imp-precios-result" style="margin-top:10px"></div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 <div class="db-banner" id="db-banner"><i class="ti ti-cloud-off"></i><span id="db-banner-msg">Sin conexión con Sheets</span><button onclick="recargarDesdeSheets()">Reintentar</button></div>
 
@@ -1074,7 +1087,7 @@ const DB = {
 
   enabled() { return this.url.length > 0 && this.token.length > 0; },
 
-  async call(action, sheet, extra={}) {
+  async call(action, sheet, extra={}, silent=false) {
     if (!this.enabled()) return null;
     try {
       const body = { action, sheet, token: this.token, ...extra };
@@ -1088,8 +1101,7 @@ const DB = {
       return json;
     } catch(e) {
       console.error('DB error:', e);
-      toast('Error al guardar en Sheets: ' + e.message, true);
-      setDbOnline(false, e.message);
+      if (!silent) { toast('Error al guardar en Sheets: ' + e.message, true); setDbOnline(false, e.message); }
       return null;
     }
   },
@@ -1101,6 +1113,15 @@ const DB = {
 
   async insert(sheet, data) {
     return this.call('insert', sheet, { data });
+  },
+
+  async insertBatch(sheet, rows) {
+    return this.call('insertBatch', sheet, { rows });
+  },
+
+  async getAllSilent(sheet) {
+    const r = await this.call('getAll', sheet, {}, true);
+    return r ? r.data : null;
   },
 
   async update(sheet, id, data) {
@@ -1124,14 +1145,15 @@ const DB = {
     if (!this.enabled()) return false;
     toast('Cargando datos desde Sheets…');
     try {
-      const [g, i, inv, m, d, catRaw, cfgRaw] = await Promise.all([
+      const [g, i, inv, m, d, catRaw, cfgRaw, snapRaw] = await Promise.all([
         this.getAll('Gastos'),
         this.getAll('Ingresos'),
         this.getAll('Inversiones'),
         this.getAll('Metas'),
         this.getAll('Deudas'),
         this.getAll('Categorias'),
-        this.getCfg()
+        this.getCfg(),
+        this.getAllSilent('InvSnapshots')
       ]);
 
       if (g)   { gastos = g.map(coerce_gasto); }
@@ -1139,6 +1161,14 @@ const DB = {
       if (inv) { inversiones = inv.map(coerce_inversion); }
       if (m)   { metas = m.map(coerce_meta); }
       if (d)   { deudas = d.map(coerce_deuda); }
+      if (snapRaw && snapRaw.length) {
+        invSnapshots = snapRaw.map(s => ({
+          id: Number(s.id), mes: String(s.mes),
+          tc: Number(s.tc) || 1, totalARS: Number(s.totalARS) || 0, totalInvARS: Number(s.totalInvARS) || 0,
+          posiciones: (() => { try { return JSON.parse(s.posiciones || '[]'); } catch(e) { return []; } })()
+        })).sort((a, b) => a.mes.localeCompare(b.mes));
+        saveSnapshots();
+      }
 
       if (catRaw && catRaw.length) {
         CAT = {};
@@ -1694,24 +1724,78 @@ function guardarPrecios(){
   toast('Precios actualizados');
 }
 
+// F-A: Importar precios actuales desde texto de broker (vía IA)
+function openImpPrecios(){
+  const t=document.getElementById('imp-precios-text');if(t)t.value='';
+  const r=document.getElementById('imp-precios-result');if(r)r.innerHTML='';
+  openModal('modal-imp-precios');
+}
+async function procesarImpPrecios(){
+  const texto=document.getElementById('imp-precios-text').value.trim();
+  const res=document.getElementById('imp-precios-result');
+  if(texto.length<10){res.innerHTML='<div style="color:var(--dan);font-size:12px">Pegá el texto del resumen (mínimo unas líneas).</div>';return;}
+  if(!DB.enabled()){res.innerHTML='<div style="color:var(--dan);font-size:12px">Configurá la URL y token del Apps Script (⚙️) para usar la IA.</div>';return;}
+  res.innerHTML='<div class="ia-status loading"><i class="ti ti-loader-2"></i><span>Interpretando con IA…</span></div>';
+  const r=await DB.call('callClaudeInv',null,{texto,activos:inversiones.map(i=>i.activo).join(',')});
+  if(!r||!r.data||!Array.isArray(r.data.posiciones)){res.innerHTML='<div class="ia-status error"><i class="ti ti-alert-triangle"></i><span>No se pudieron extraer precios del texto.</span></div>';return;}
+  let aplicados=0;const noMatch=[];const updates=[];
+  r.data.posiciones.forEach(p=>{
+    const precio=parseFloat(p.precioActual);
+    const inv=inversiones.find(i=>i.activo.toUpperCase()===String(p.activo||'').toUpperCase());
+    if(inv&&!isNaN(precio)&&precio>=0){inv.pa=precio;aplicados++;updates.push(inv);}
+    else if(!isNaN(precio)&&p.activo) noMatch.push(p.activo);
+  });
+  renderInv();
+  if(DB.enabled()) for(const inv of updates) await DB.update('Inversiones',inv.id,{pa:inv.pa});
+  res.innerHTML=`<div class="ia-status ok"><i class="ti ti-check"></i><span>${aplicados} precio${aplicados!==1?'s':''} actualizado${aplicados!==1?'s':''}.${noMatch.length?' Sin coincidencia: '+noMatch.map(escHTML).join(', '):''}</span></div>`;
+  if(aplicados) toast(`${aplicados} precio${aplicados!==1?'s':''} actualizado${aplicados!==1?'s':''}`);
+}
+
+// F-B: Sincronizar precios desde Binance (read-only, firma HMAC server-side)
+async function sincronizarBinance(){
+  if(!DB.enabled()){toast('Configurá el Apps Script (⚙️) primero',true);return;}
+  toast('Consultando Binance…');
+  const r=await DB.call('callBinance',null,{});
+  if(!r||!r.data||!Array.isArray(r.data.balances)){toast('No se pudo sincronizar. Revisá BINANCE_API_KEY/SECRET en Script Properties.',true);return;}
+  let act=0;const updates=[];
+  r.data.balances.forEach(b=>{
+    if(!b.priceUSDT)return;
+    const inv=inversiones.find(i=>i.plat==='Binance'&&i.activo.toUpperCase()===b.asset.toUpperCase());
+    if(inv){inv.pa=b.priceUSDT;if(inv.mon!=='USD')inv.mon='USD';act++;updates.push(inv);}
+  });
+  renderInv();
+  if(DB.enabled()) for(const inv of updates) await DB.update('Inversiones',inv.id,{pa:inv.pa,mon:inv.mon});
+  toast(act>0?`Binance: ${act} posición${act!==1?'es':''} actualizada${act!==1?'s':''} ✓`:'Binance conectado — sin coincidencias con tu portafolio');
+}
+
 // Cerrar mes: guarda snapshot con estado actual de inversiones
-function cerrarMes(){
+async function cerrarMes(){
   const now=new Date();
   const mes=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+  let oldId=null;
   // No duplicar si ya existe snapshot de este mes
-  if(invSnapshots.find(s=>s.mes===mes)){
+  const existente=invSnapshots.find(s=>s.mes===mes);
+  if(existente){
     if(!confirm('Ya existe un snapshot para '+mes+'. ¿Sobreescribir?')) return;
+    oldId=existente.id||null;
     invSnapshots=invSnapshots.filter(s=>s.mes!==mes);
   }
   const tc=cfg.tc||1;
   const posiciones=inversiones.map(i=>({id:i.id,activo:i.activo,tipo:i.tipo,plat:i.plat,mon:i.mon,qty:i.qty,pe:i.pe,pa:i.pa}));
   const totalARS=posiciones.reduce((a,p)=>a+posValARS(p,tc),0);
   const totalInvARS=posiciones.reduce((a,p)=>a+posInvARS(p,tc),0);
-  invSnapshots.push({mes,tc,posiciones,totalARS,totalInvARS});
+  const snap={id:nid++,mes,tc,posiciones,totalARS,totalInvARS};
+  invSnapshots.push(snap);
   invSnapshots.sort((a,b)=>a.mes.localeCompare(b.mes));
   saveSnapshots();
   renderInv();
   toast('Snapshot '+mes+' guardado ✓');
+  // Persistir en Sheets (hoja InvSnapshots; posiciones como JSON)
+  if(DB.enabled()){
+    if(oldId!=null) await DB.remove('InvSnapshots',oldId);
+    const r=await DB.insert('InvSnapshots',{id:snap.id,mes,tc,totalARS,totalInvARS,posiciones:JSON.stringify(posiciones)});
+    if(r&&r.id&&Number(r.id)!==snap.id){snap.id=Number(r.id);saveSnapshots();}
+  }
 }
 
 // Renderiza gráficos de portfolio a partir de snapshots
@@ -4113,8 +4197,15 @@ async function confirmImport(){
   // Persistir en Google Sheets de forma SECUENCIAL para evitar IDs duplicados
   // (Apps Script calcula maxId en cada insert — si van en paralelo todos leen el mismo maxId)
   if(DB.enabled()){
-    for(const r of nuevosGastos)   await _insertReconcile('Gastos',r);
-    for(const r of nuevosIngresos) await _insertReconcile('Ingresos',r);
+    // insertBatch: una sola llamada por hoja en vez de N (más rápido, evita rozar el timeout)
+    if(nuevosGastos.length){
+      const rg=await DB.insertBatch('Gastos',nuevosGastos);
+      if(rg&&rg.ids) nuevosGastos.forEach((r,i)=>{if(rg.ids[i]!=null)r.id=Number(rg.ids[i]);});
+    }
+    if(nuevosIngresos.length){
+      const ri=await DB.insertBatch('Ingresos',nuevosIngresos);
+      if(ri&&ri.ids) nuevosIngresos.forEach((r,i)=>{if(ri.ids[i]!=null)r.id=Number(ri.ids[i]);});
+    }
   }
 }
 async function saveCfg(){
