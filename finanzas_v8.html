@@ -5,11 +5,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>HouseholdCap</title>
 <!--
- * HouseholdCap v6.0 — Dashboard v6
- * Cambios: comparativo mes anterior, TC automático (dolarapi.com),
- *          presupuestos por categoría + semáforo, notificaciones de metas,
- *          búsqueda global Cmd+K, gráficos SVG nativos, simulador ¿Qué pasa si?
- * Fecha: 08/06/2026
+ * HouseholdCap v8.0
+ * Olas de mejora sobre v7.8 (ver /analisis):
+ *  Ola 1 (fixes críticos): % pagado deuda UVA/USD, timezone de cuotas,
+ *     saveInv permite 0, guardia obj=0 en metas, validación TC>0.
+ *  Ola 2 (robustez): escape HTML anti-XSS, conversión USD→ARS en delta/promedios,
+ *     reconciliación de ids cliente/servidor, validación de deudas, indicador de conexión.
+ *  Ola 3 (inversiones): snapshots a Sheets, insertBatch, sync Binance (HMAC server-side),
+ *     importar precios desde texto con IA.
+ *  Ola 4: ajuste proporcional al ingreso, exportar/imprimir PDF, mobile, performance.
+ * Fecha: 13/06/2026
 -->
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
@@ -427,6 +432,27 @@ input:checked+.proy-slider:before{transform:translateX(16px)}
 .sim-bk-item{background:rgba(255,255,255,.1);border-radius:8px;padding:10px}
 .sim-bk-lbl{font-size:9px;opacity:.6;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px}
 .sim-bk-val{font-size:14px;font-weight:800}
+/* ===== v8: MOBILE ===== */
+@media(max-width:600px){
+  table{font-size:11px}
+  th,td{padding:6px 7px}
+  .snap-bar{flex-direction:column;align-items:flex-start;gap:10px}
+  .snap-bar-actions{flex-wrap:wrap}
+  .st{font-size:14px}
+  .mv{font-size:17px}
+  .flow-box{min-width:90px}
+}
+/* ===== v8: IMPRESIÓN / EXPORTAR PDF ===== */
+@media print{
+  .topbar,.nav,.db-banner,.toast,.health-actions,.bp,.bs,.snap-bar-actions,.filtro-fecha-bar,.mn,.hact,.edit-btn,.del-btn{display:none!important}
+  .sec:not(#sec-dashboard){display:none!important}
+  #sec-dashboard{display:block!important}
+  #dash-anual-content,#dash-nav-anual{display:none!important}
+  .app{box-shadow:none;max-width:100%;margin:0}
+  body{background:#fff}
+  .card,.met,.health-wrap{break-inside:avoid;box-shadow:none}
+  .content{padding:0}
+}
 </style>
 </head>
 <body>
@@ -496,6 +522,7 @@ input:checked+.proy-slider:before{transform:translateX(16px)}
       <button class="tab cur-btn active" data-cur="ARS" onclick="setCur('ARS')">ARS</button>
       <button class="tab cur-btn" data-cur="USD" onclick="setCur('USD')">USD</button>
     </div>
+    <button class="bs" onclick="window.print()" title="Exportar / imprimir resumen (guardar como PDF)"><i class="ti ti-printer"></i></button>
   </div>
   <div id="dash-notifs" class="notifs-wrap"></div>
   <div id="dash-mes-content"></div>
@@ -584,9 +611,10 @@ input:checked+.proy-slider:before{transform:translateX(16px)}
   <div class="sep" style="margin-top:24px">Ajuste de cuentas familiares</div>
   <div class="ajuste-box">
     <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Calculá cuánto se debe uno al otro por los gastos familiares del mes, descontando lo pagado de fondos conjuntos.</div>
-    <div class="fr">
+    <div class="fr t3">
       <div class="fg"><div class="fl">Mes a ajustar</div><input type="month" id="ajuste-mes" onchange="renderAjuste()"/></div>
-      <div class="fg" style="justify-content:flex-end"><div class="fl">&nbsp;</div><button class="bp" onclick="renderAjuste()"><i class="ti ti-calculator"></i>Calcular ajuste</button></div>
+      <div class="fg"><div class="fl">Repartir</div><select id="ajuste-modo" onchange="renderAjuste()"><option value="5050">Mitad y mitad (50/50)</option><option value="prop">Proporcional al ingreso</option></select></div>
+      <div class="fg" style="justify-content:flex-end"><div class="fl">&nbsp;</div><button class="bp" onclick="renderAjuste()"><i class="ti ti-calculator"></i>Calcular</button></div>
     </div>
     <div class="ajuste-result" id="ajuste-result"></div>
   </div>
@@ -2305,12 +2333,10 @@ function renderDashMes(){
 
   // SVG línea — meses Ene→Dic del año actual (posición = mes real, sin bug de timezone)
   const chartCf=curCur==='USD'?1/(cfg.tc||1):1;
-  const ingLine=Array.from({length:12},(_,m)=>
-    ingresos.filter(i=>{const{y:iy,m:im}=getMesImp(i);return iy===curY&&im===m})
-            .reduce((a,i)=>a+toARS(i.monto,i.mon||'ARS'),0)*chartCf);
-  const gstLine=Array.from({length:12},(_,m)=>
-    gastos.filter(g=>{const{y:gy,m:gm}=getMesImp(g);return gy===curY&&gm===m})
-          .reduce((a,g)=>a+toARS(g.monto,g.mon||'ARS'),0)*chartCf);
+  // Perf: una sola pasada por cada array en vez de filtrar 12 veces
+  const ingLine=Array(12).fill(0),gstLine=Array(12).fill(0);
+  ingresos.forEach(i=>{const{y:iy,m:im}=getMesImp(i);if(iy===curY&&im>=0&&im<12)ingLine[im]+=toARS(i.monto,i.mon||'ARS')*chartCf;});
+  gastos.forEach(g=>{const{y:gy,m:gm}=getMesImp(g);if(gy===curY&&gm>=0&&gm<12)gstLine[gm]+=toARS(g.monto,g.mon||'ARS')*chartCf;});
 
   const svgLine=svgLinea(
     [{label:'Ingresos',color:'var(--acc-m)',data:ingLine},{label:'Gastos',color:'var(--dan)',data:gstLine}],
@@ -3036,10 +3062,20 @@ function renderAjuste(){
   const pagU2=mes.filter(g=>g.quien==='u2').reduce((a,g)=>a+toARS(g.monto,g.mon||'ARS'),0);
   const pagConj=mes.filter(g=>g.quien==='comp').reduce((a,g)=>a+toARS(g.monto,g.mon||'ARS'),0);
   const neto=totalFam-pagConj;
-  const debeada=neto/2;
+  // F-F: reparto 50/50 o proporcional al ingreso del mes
+  const modo=document.getElementById('ajuste-modo')?.value||'5050';
+  let s1=0.5,s2=0.5;
+  if(modo==='prop'){
+    const ingMes=ingresos.filter(i=>{const{y:iy,m:im}=getMesImp(i);return iy===y&&im===m-1;});
+    const i1=ingMes.filter(i=>i.quien==='u1').reduce((a,i)=>a+toARS(i.monto,i.mon||'ARS'),0);
+    const i2=ingMes.filter(i=>i.quien==='u2').reduce((a,i)=>a+toARS(i.monto,i.mon||'ARS'),0);
+    const tot=i1+i2;
+    if(tot>0){s1=i1/tot;s2=i2/tot;}
+  }
+  const debeU1=neto*s1, debeU2=neto*s2;
   const u1pago=pagU1;
   const u2pago=pagU2;
-  const u1diff=u1pago-debeada;
+  const u1diff=u1pago-debeU1;
   const deudor=u1diff>0?cfg.u2:cfg.u1;
   const acreedor=u1diff>0?cfg.u1:cfg.u2;
   const monto=Math.abs(u1diff);
@@ -3049,7 +3085,8 @@ function renderAjuste(){
       <div class="split-row"><div class="split-lbl">Total gastos familiares</div><div class="split-v">${faC(totalFam)}</div></div>
       <div class="split-row"><div class="split-lbl">Pagado de fondos conjuntos</div><div class="split-v">${faC(pagConj)}</div></div>
       <div class="split-row" style="background:var(--bg2)"><div class="split-lbl" style="font-weight:700">Saldo neto a distribuir</div><div class="split-v">${faC(neto)}</div></div>
-      <div class="split-row"><div class="split-lbl">Corresponde a cada uno (50%)</div><div class="split-v">${faC(debeada)}</div></div>
+      <div class="split-row"><div class="split-lbl">Le corresponde a ${cfg.u1} (${Math.round(s1*100)}%)</div><div class="split-v">${faC(debeU1)}</div></div>
+      <div class="split-row"><div class="split-lbl">Le corresponde a ${cfg.u2} (${Math.round(s2*100)}%)</div><div class="split-v">${faC(debeU2)}</div></div>
       <div class="split-row"><div class="split-lbl">${cfg.u1} pagó</div><div class="split-v">${faC(u1pago)}</div></div>
       <div class="split-row"><div class="split-lbl">${cfg.u2} pagó</div><div class="split-v">${faC(u2pago)}</div></div>
       <div class="split-row" style="background:${monto>0?'var(--warn-l)':'var(--acc-l)'};border-radius:var(--r);padding:10px 12px;margin-top:8px">

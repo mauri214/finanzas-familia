@@ -6,8 +6,8 @@ Herramienta de finanzas personales para una pareja (2 usuarios), construida como
 
 ## Estado actual
 
-- **Versión activa:** v6.0 (`finanzas_v6.html`)
-- **Versión anterior:** v5.3 (`finanzas_v5.3.html`)
+- **Versión activa:** v8.0 (`finanzas_v8.html`)
+- **Versión anterior:** v7.8 (`finanzas_v7.html`)
 - **Stack:** HTML + CSS + JavaScript vanilla (sin frameworks), un solo archivo
 - **Persistencia:** Google Sheets via Apps Script (con token de seguridad). Fallback a memoria si no hay URL configurada.
 - **Repo:** github.com/mauri214/HouseholdCap
@@ -15,7 +15,35 @@ Herramienta de finanzas personales para una pareja (2 usuarios), construida como
 - **Diseño:** Aston Martin — British Racing Green #003A2F, Ivory #F5F0E8, Carbon Black #0A0A0A
 - **App name:** HouseholdCap
 
-### Novedades v6.0 (actual)
+### Novedades v8.0 (actual)
+Surgen del análisis profundo documentado en `/analisis/`. Se trabajó en 4 olas:
+
+**Ola 1 — Fixes críticos**
+- `% pagado` de deudas correcto en préstamos UVA/USD (usa capital efectivo en ARS, no el nominal)
+- Corregido bug de timezone en el cómputo de cuotas de tarjeta (`calcCuotasPend`/`renderImportar`)
+- `saveInv` permite precio 0 (airdrops/regalos) y valida cantidad > 0 / precios ≥ 0
+- Guardia para metas con objetivo 0 (ya no muestra 100% falso)
+- Validación de tipo de cambio > 0 al guardar y al cargar configuración
+
+**Ola 2 — Robustez**
+- Escape de HTML (anti-XSS) en descripciones, notas, nombres y activos
+- Comparativo mes anterior y promedios diarios convierten USD→ARS correctamente
+- Reconciliación del id local con el id real del Sheet al dar de alta (evita "registro no encontrado")
+- Validación de deudas (TNA ≥ 0, plazo ≥ 1, cuotas pagadas ≤ plazo)
+- Indicador visual persistente de "sin conexión con Sheets" con botón de reintento
+
+**Ola 3 — Inversiones completas**
+- Snapshots de portafolio persisten en Google Sheets (hoja `InvSnapshots`), no solo en localStorage
+- `insertBatch`: la importación inserta todas las filas en una sola llamada (mucho más rápido)
+- Sincronización con **Binance** (read-only): actualiza precios de posiciones; firma HMAC server-side, claves en Script Properties
+- Importar precios desde texto de broker con IA (match por ticker, no crea posiciones)
+
+**Ola 4 — Producto / UX**
+- Ajuste de cuentas: opción de repartir **proporcional al ingreso** además de 50/50
+- Exportar / imprimir el resumen del dashboard como PDF (CSS de impresión)
+- Mejoras responsive (mobile) y de performance (una sola pasada para la tendencia de 12 meses)
+
+### Novedades v6.0
 - **Comparativo mes anterior:** flechas ↑/↓ con delta % en métricas de ingresos, gastos y balance
 - **Tipo de cambio automático:** chip TC en topbar, fetch a dolarapi.com, modal con todas las cotizaciones, aplicar con un click
 - **Presupuestos por categoría + semáforo:** límites configurables en "Cargar datos", semáforo 🟢🟡🔴 en barras del dashboard
@@ -386,10 +414,20 @@ Output por mes (mes actual → diciembre):
 ---
 
 ### Backlog futuro
-- [ ] Conectar API Binance (read-only) para PNL automático de crypto
-- [ ] Notificaciones de metas próximas a vencer
-- [ ] Exportación a PDF del resumen mensual
+- [x] Conectar API Binance (read-only) — sincronización de precios (v8) ✓
+- [x] Notificaciones de metas próximas a vencer (v6) ✓
+- [x] Exportación a PDF del resumen mensual (v8, vía impresión) ✓
+- [ ] Importar **posiciones nuevas** de inversión desde PDF de broker (v8 solo actualiza precios de las existentes)
 - [ ] App nativa (PWA → App Store / Play Store)
+- [ ] Mover el token y el `SPREADSHEET_ID` a Script Properties (pendiente por decisión del usuario — ver `/analisis/4_ANALISIS_SEGURIDAD.md`)
+
+### Despliegue requerido para v8 (Apps Script)
+Las features de la Ola 3 necesitan actualizar el backend:
+1. Pegar el `appsscript/Code.gs` actualizado en el proyecto de Apps Script y **deployar** nueva versión del Web App.
+2. Correr `initSheets()` (o crear la hoja **InvSnapshots** con `fixHeaders`) para habilitar los snapshots en Sheets.
+3. Para Binance: agregar `BINANCE_API_KEY` y `BINANCE_API_SECRET` (read-only) en **Script Properties**.
+4. Para importar precios con IA: ya usa la `CLAUDE_API_KEY` existente.
+Sin este deploy, la app sigue funcionando: los snapshots caen a localStorage y los botones de Binance/IA avisan que falta configuración.
 
 ---
 
