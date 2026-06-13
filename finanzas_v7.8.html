@@ -1202,7 +1202,7 @@ function coerce_inversion(r) {
   return { ...r, id:Number(r.id), qty:Number(r.qty), pe:Number(r.pe), pa:Number(r.pa) };
 }
 function coerce_meta(r) {
-  return { ...r, id:Number(r.id), obj:Number(r.obj), act:Number(r.act), done: r.done==='true'||r.done===true, mon:r.mon||'ARS', importancia:Number(r.importancia)||999 };
+  return { ...r, id:Number(r.id), obj:Number(r.obj), act:Number(r.act), done: r.done==='true'||r.done===true, mon:r.mon||'ARS', importancia:Number(r.importancia)||999, fecha:normFecha(r.fecha) };
 }
 function coerce_deuda(r) {
   return { ...r, id:Number(r.id), cap:Number(r.cap), tna:Number(r.tna), plazo:Number(r.plazo), pag:Number(r.pag)||0, mon:r.mon||'ARS', uva_init:Number(r.uva_init)||0 };
