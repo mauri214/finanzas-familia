@@ -524,6 +524,47 @@ function deleteCat(nombre) {
 }
 
 // ============================================================
+// MIGRACIÓN — Normalizar fechas de Metas a texto YYYY-MM-DD
+// Ejecutar una sola vez desde el editor de Apps Script
+// ============================================================
+
+function fixMetasFechas() {
+  var sh = getSheet('Metas');
+  var headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
+  var fechaCol = headers.indexOf('fecha');
+  if (fechaCol === -1) { Logger.log('Columna fecha no encontrada'); return; }
+
+  var data = sh.getDataRange().getValues();
+  var changed = 0;
+
+  // Formatear la columna fecha como texto plano primero
+  var fechaRange = sh.getRange(2, fechaCol + 1, Math.max(1, data.length - 1), 1);
+  fechaRange.setNumberFormat('@'); // @ = texto sin formato
+
+  for (var i = 1; i < data.length; i++) {
+    var raw = data[i][fechaCol];
+    if (!raw) continue;
+
+    var normalized = '';
+    if (raw instanceof Date) {
+      // Formatear como YYYY-MM-DD usando la zona horaria del Sheet
+      normalized = Utilities.formatDate(raw, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+    } else {
+      var s = String(raw);
+      var m = s.match(/^(\d{4}-\d{2}-\d{2})/);
+      if (m) normalized = m[1];
+    }
+
+    if (normalized && normalized !== String(raw)) {
+      sh.getRange(i + 1, fechaCol + 1).setValue(normalized);
+      changed++;
+    }
+  }
+
+  Logger.log('fixMetasFechas: ' + changed + ' fechas normalizadas en ' + (data.length - 1) + ' filas');
+}
+
+// ============================================================
 // HELPER
 // ============================================================
 
