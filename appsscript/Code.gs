@@ -22,7 +22,8 @@ var HEADERS = {
   Metas:        ['id','nom','tipo','obj','act','fecha','color','done','notas','mon','importancia'],
   Deudas:       ['id','nom','tipo','cap','tna','plazo','pag','ent','own','mon','uva_init'],
   Configuracion:['clave','valor'],
-  Categorias:   ['nombre','color','amb']
+  Categorias:   ['nombre','color','amb'],
+  InvSnapshots: ['id','mes','tc','totalARS','totalInvARS','posiciones']
 };
 
 // ============================================================
@@ -70,6 +71,9 @@ function handleRequest(e) {
       case 'deleteCat':     result = deleteCat(body.nombre);   break;
       case 'fixHeaders':    result = fixHeaders();             break;
       case 'fixDupIds':     result = fixDupIds(body.sheet);   break;
+      case 'insertBatch':   result = insertBatch(sheet, body.rows); break;
+      case 'callBinance':   result = callBinance(body);        break;
+      case 'callClaudeInv': result = callClaudeInv(body);      break;
       default:
         result = { ok: false, error: 'Acción desconocida: ' + action };
     }
@@ -562,6 +566,139 @@ function fixMetasFechas() {
   }
 
   Logger.log('fixMetasFechas: ' + changed + ' fechas normalizadas en ' + (data.length - 1) + ' filas');
+}
+
+// ============================================================
+// INSERT BATCH — inserta N filas en una sola llamada (rápido)
+// Devuelve los ids asignados, en el mismo orden que rows.
+// ============================================================
+
+function insertBatch(sheetName, rows) {
+  if (!rows || !rows.length) return { ok: true, ids: [] };
+  var sh = getSheet(sheetName);
+  var headers = HEADERS[sheetName];
+  var hasId = headers[0] === 'id';
+  var nextId = 1;
+  if (hasId) {
+    var data = sh.getDataRange().getValues();
+    nextId = data.length > 1
+      ? Math.max.apply(null, data.slice(1).map(function(r){ return Number(r[0]) || 0; })) + 1
+      : 1;
+  }
+  var ids = [];
+  var matrix = rows.map(function(rec) {
+    if (hasId) { rec.id = nextId; ids.push(nextId); nextId++; }
+    return headers.map(function(h){ var v = rec[h]; return v === undefined ? '' : v; });
+  });
+  sh.getRange(sh.getLastRow() + 1, 1, matrix.length, headers.length).setValues(matrix);
+  return { ok: true, ids: ids };
+}
+
+// ============================================================
+// BINANCE (read-only) — balances + precios USDT
+// Claves en Script Properties: BINANCE_API_KEY / BINANCE_API_SECRET
+// La firma HMAC se hace server-side; la secret nunca toca el frontend.
+// ============================================================
+
+function callBinance(body) {
+  var props = PropertiesService.getScriptProperties();
+  var apiKey = props.getProperty('BINANCE_API_KEY');
+  var apiSecret = props.getProperty('BINANCE_API_SECRET');
+  if (!apiKey || !apiSecret) {
+    return { ok: false, error: 'Faltan BINANCE_API_KEY / BINANCE_API_SECRET en Script Properties.' };
+  }
+  try {
+    var ts = Date.now();
+    var query = 'timestamp=' + ts + '&recvWindow=10000';
+    var sig = signHmac(query, apiSecret);
+    var accUrl = 'https://api.binance.com/api/v3/account?' + query + '&signature=' + sig;
+    var accRes = UrlFetchApp.fetch(accUrl, {
+      method: 'get',
+      headers: { 'X-MBX-APIKEY': apiKey },
+      muteHttpExceptions: true
+    });
+    if (accRes.getResponseCode() !== 200) {
+      return { ok: false, error: 'Binance account: ' + accRes.getContentText().slice(0, 200) };
+    }
+    var acc = JSON.parse(accRes.getContentText());
+    var balances = (acc.balances || []).filter(function(b){
+      return (parseFloat(b.free) + parseFloat(b.locked)) > 0.0000001;
+    }).map(function(b){
+      return { asset: b.asset, qty: parseFloat(b.free) + parseFloat(b.locked) };
+    });
+
+    var priceRes = UrlFetchApp.fetch('https://api.binance.com/api/v3/ticker/price', { muteHttpExceptions: true });
+    var prices = {};
+    if (priceRes.getResponseCode() === 200) {
+      JSON.parse(priceRes.getContentText()).forEach(function(p){ prices[p.symbol] = parseFloat(p.price); });
+    }
+    balances.forEach(function(b){
+      if (b.asset === 'USDT' || b.asset === 'BUSD' || b.asset === 'USDC' || b.asset === 'DAI') { b.priceUSDT = 1; }
+      else { b.priceUSDT = prices[b.asset + 'USDT'] || 0; }
+    });
+    return { ok: true, data: { balances: balances } };
+  } catch (err) {
+    return { ok: false, error: 'Binance: ' + err.message };
+  }
+}
+
+function signHmac(message, secret) {
+  var raw = Utilities.computeHmacSha256Signature(message, secret);
+  return raw.map(function(b){
+    var v = (b < 0 ? b + 256 : b).toString(16);
+    return v.length === 1 ? '0' + v : v;
+  }).join('');
+}
+
+// ============================================================
+// CLAUDE — extraer precios actuales desde un resumen de broker
+// Devuelve [{activo, precioActual, moneda}] para actualizar 'pa'
+// ============================================================
+
+function callClaudeInv(body) {
+  var props = PropertiesService.getScriptProperties();
+  var claudeKey = props.getProperty('CLAUDE_API_KEY');
+  if (!claudeKey) return { ok: false, error: 'API key de Claude no configurada en Script Properties.' };
+
+  var texto = (body.texto || '').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ' ').slice(0, 6000);
+  if (texto.length < 10) return { ok: false, error: 'Texto vacío o muy corto.' };
+  var activos = body.activos || '';
+
+  var sys = 'Sos un asistente que lee resúmenes de cuenta de brokers/exchanges argentinos ' +
+    '(Bull Market, Balanz, IOL, Cocos, Binance, etc.) en español.\n' +
+    'Tu tarea: identificar cada activo/tenencia y su PRECIO ACTUAL por unidad (no el total).\n' +
+    (activos ? 'Activos que ya tiene el usuario (priorizá hacer match con estos tickers): [' + activos + ']\n' : '') +
+    'Reglas:\n' +
+    '- "precioActual": número por unidad, sin símbolos ni separador de miles.\n' +
+    '- "moneda": "ARS" o "USD".\n' +
+    '- Si una línea es un total/subtotal/saldo, IGNORALA.\n' +
+    'Devolvé SOLO este JSON, sin markdown:\n' +
+    '{"posiciones":[{"activo":"MELI","precioActual":18500.50,"moneda":"ARS"},{"activo":"BTC","precioActual":67000,"moneda":"USD"}]}';
+
+  var payload = JSON.stringify({
+    model: 'claude-haiku-4-5',
+    max_tokens: 2048,
+    system: sys,
+    messages: [{ role: 'user', content: 'Resumen de broker:\n\n' + texto }]
+  });
+  try {
+    var response = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
+      method: 'post', contentType: 'application/json',
+      headers: { 'x-api-key': claudeKey, 'anthropic-version': '2023-06-01' },
+      payload: payload, muteHttpExceptions: true
+    });
+    if (response.getResponseCode() !== 200) {
+      return { ok: false, error: 'Claude API error HTTP ' + response.getResponseCode() };
+    }
+    var data = JSON.parse(response.getContentText('UTF-8'));
+    var content = data.content && data.content[0] ? data.content[0].text : '';
+    var match = content.match(/\{[\s\S]*\}/);
+    if (!match) return { ok: false, error: 'Respuesta inesperada de Claude (sin JSON)' };
+    var parsed = JSON.parse(match[0].replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, ''));
+    return { ok: true, data: parsed };
+  } catch (err) {
+    return { ok: false, error: 'Error al llamar a Claude: ' + err.message };
+  }
 }
 
 // ============================================================
